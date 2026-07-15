@@ -46,3 +46,22 @@ export function resetReview() {
     currentIndex = 0;
 
 }
+
+/**
+ * Save the selected categories for a word.
+ */
+export function saveCategories(wordId, categories) {
+
+    const word = words.find(w => w.id === wordId);
+
+    if (!word) {
+        return;
+    }
+
+    word.categories = [...categories];
+
+    word.updatedAt = new Date();
+
+    console.log("Saved:", word);
+
+}

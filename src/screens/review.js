@@ -1,6 +1,7 @@
 import {
     getCurrentWord,
-    nextWord
+    nextWord,
+    saveCategories
 } from "../services/dictionaryService.js";
 
 /**
@@ -23,13 +24,25 @@ export function renderReviewScreen(container) {
 
             <div class="categories">
 
-                <label><input type="checkbox"> اسم</label>
+                <label>
+                <input type="checkbox" value="noun">
+                    اسم
+                </label>
 
-                <label><input type="checkbox"> فعل</label>
+                <label>
+                    <input type="checkbox" value="verb">
+                    فعل
+                </label>
 
-                <label><input type="checkbox"> حرف</label>
+                <label>
+                    <input type="checkbox" value="particle">
+                    حرف
+                </label>
 
-                <label><input type="checkbox"> ضمير</label>
+                <label>
+                    <input type="checkbox" value="pronoun">
+                    ضمير
+                </label>
 
             </div>
 
@@ -55,23 +68,36 @@ export function renderReviewScreen(container) {
 function registerEvents() {
 
     document
-        .getElementById("nextButton")
-        .addEventListener("click", () => {
+    .getElementById("nextButton")
+    .addEventListener("click", () => {
 
-            nextWord();
+        const currentWord = getCurrentWord();
 
-            renderReviewScreen(
-                document.getElementById("app")
-            );
+        if (!currentWord) {
+            return;
+        }
 
-        });
+        const selectedCategories = [];
 
-    document
-        .getElementById("backButton")
-        .addEventListener("click", () => {
+        document
+            .querySelectorAll(".categories input:checked")
+            .forEach(cb => {
 
-            window.location.hash = "#/";
+                selectedCategories.push(cb.value);
 
-        });
+            });
+
+        saveCategories(
+            currentWord.id,
+            selectedCategories
+        );
+
+        nextWord();
+
+        renderReviewScreen(
+            document.getElementById("app")
+        );
+
+    });
 
 }
