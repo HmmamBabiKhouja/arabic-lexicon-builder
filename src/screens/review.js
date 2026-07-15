@@ -1,4 +1,7 @@
-import { getCurrentWord } from "../services/dictionaryService.js";
+import {
+    getCurrentWord,
+    nextWord
+} from "../services/dictionaryService.js";
 
 /**
  * Review Screen
@@ -30,9 +33,17 @@ export function renderReviewScreen(container) {
 
             </div>
 
-            <button id="backButton">
-                رجوع
-            </button>
+            <div class="button-group">
+
+                <button id="nextButton">
+                    التالي
+                </button>
+
+                <button id="backButton">
+                    العودة للرئيسية
+                </button>
+
+            </div>
 
         </section>
     `;
@@ -42,6 +53,18 @@ export function renderReviewScreen(container) {
 }
 
 function registerEvents() {
+
+    document
+        .getElementById("nextButton")
+        .addEventListener("click", () => {
+
+            nextWord();
+
+            renderReviewScreen(
+                document.getElementById("app")
+            );
+
+        });
 
     document
         .getElementById("backButton")
