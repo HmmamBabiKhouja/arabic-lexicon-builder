@@ -12,14 +12,7 @@ export class Word {
 
         this.status = "pending";
 
-        this.categories = {
-
-            noun: false,
-            verb: false,
-            particle: false,
-            pronoun: false
-
-        };
+        categories = []
 
         this.notes = "";
 

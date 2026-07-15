@@ -22,12 +22,12 @@ let currentIndex = 0;
 export function getNextWord() {
 
     if (currentIndex >= words.length) {
-
         return null;
-
     }
 
-    return words[currentIndex++];
+    const word = words[currentIndex++];
+
+    return structuredClone(word);
 
 }
 
