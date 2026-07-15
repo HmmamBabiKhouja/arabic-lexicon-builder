@@ -1,7 +1,9 @@
 import {
     getCurrentWord,
     nextWord,
-    saveCategories
+    saveCategories,
+    getCurrentIndex,
+    getTotalWords
 } from "../services/dictionaryService.js";
 
 /**
@@ -10,6 +12,8 @@ import {
 export function renderReviewScreen(container) {
 
     const currentWord = getCurrentWord();
+    const currentIndex = getCurrentIndex();
+    const totalWords = getTotalWords();
 
     const wordText = currentWord
         ? currentWord.word
@@ -18,9 +22,19 @@ export function renderReviewScreen(container) {
     container.innerHTML = `
         <section class="welcome-card">
 
+            <div class="progress-info">
+
+                <strong>${currentIndex} / ${totalWords}</strong>
+
+            </div>
+
             <h2>Review</h2>
 
             <h1 class="word">${wordText}</h1>
+            <p class="frequency">
+                Frequency:
+                ${currentWord ? currentWord.frequency.toLocaleString() : "-"}
+            </p>
 
             <div class="categories">
 

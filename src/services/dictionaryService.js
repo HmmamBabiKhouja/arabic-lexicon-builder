@@ -65,3 +65,17 @@ export function saveCategories(wordId, categories) {
     console.log("Saved:", word);
 
 }
+
+/**
+ * Total number of words.
+ */
+export function getTotalWords() {
+    return words.length;
+}
+
+/**
+ * Current position (1-based).
+ */
+export function getCurrentIndex() {
+    return currentIndex + 1;
+}
