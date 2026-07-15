@@ -12,7 +12,8 @@ export class Word {
 
         this.status = "pending";
 
-        categories = []
+        // A word can belong to multiple categories
+        this.categories = [];
 
         this.notes = "";
 

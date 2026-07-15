@@ -1,36 +1,40 @@
+import { getCurrentWord } from "../services/dictionaryService.js";
+
 /**
  * Review Screen
  */
-
 export function renderReviewScreen(container) {
 
+    const currentWord = getCurrentWord();
+
+    const wordText = currentWord
+        ? currentWord.word
+        : "انتهت المراجعة";
+
     container.innerHTML = `
+        <section class="welcome-card">
 
-    <section class="welcome-card">
+            <h2>Review</h2>
 
-        <h2>Review</h2>
+            <h1 class="word">${wordText}</h1>
 
-        <h1 class="word">
-            كتاب
-        </h1>
+            <div class="categories">
 
-        <div class="categories">
+                <label><input type="checkbox"> اسم</label>
 
-            <label><input type="checkbox"> اسم</label>
-            <label><input type="checkbox"> فعل</label>
-            <label><input type="checkbox"> حرف</label>
-            <label><input type="checkbox"> ضمير</label>
+                <label><input type="checkbox"> فعل</label>
 
-        </div>
+                <label><input type="checkbox"> حرف</label>
 
-        <button id="backButton">
+                <label><input type="checkbox"> ضمير</label>
 
-            رجوع
+            </div>
 
-        </button>
+            <button id="backButton">
+                رجوع
+            </button>
 
-    </section>
-
+        </section>
     `;
 
     registerEvents();
