@@ -1,3 +1,7 @@
+/**
+ * Review categories
+ */
+
 export const categories = [
 
     {
@@ -18,6 +22,11 @@ export const categories = [
     {
         id: "pronoun",
         label: "ضمير"
+    },
+
+    {
+        id: "adjective",
+        label: "صفة"
     }
 
 ];

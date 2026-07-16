@@ -6,6 +6,8 @@ import {
     getTotalWords
 } from "../services/dictionaryService.js";
 
+import { categories } from "../config/categories.js";
+
 /**
  * Review Screen
  */
@@ -18,6 +20,18 @@ export function renderReviewScreen(container) {
     const wordText = currentWord
         ? currentWord.word
         : "انتهت المراجعة";
+
+    const categoryHTML = categories
+    .map(category => `
+        <label>
+            <input
+                type="checkbox"
+                value="${category.id}"
+            >
+            ${category.label}
+        </label>
+    `)
+    .join("");    
 
     container.innerHTML = `
         <section class="welcome-card">
@@ -38,25 +52,7 @@ export function renderReviewScreen(container) {
 
             <div class="categories">
 
-                <label>
-                <input type="checkbox" value="noun">
-                    اسم
-                </label>
-
-                <label>
-                    <input type="checkbox" value="verb">
-                    فعل
-                </label>
-
-                <label>
-                    <input type="checkbox" value="particle">
-                    حرف
-                </label>
-
-                <label>
-                    <input type="checkbox" value="pronoun">
-                    ضمير
-                </label>
+                ${categoryHTML}
 
             </div>
 
