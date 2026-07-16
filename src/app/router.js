@@ -1,5 +1,6 @@
 import { renderHomeScreen } from "../screens/home.js";
 import { renderReviewScreen } from "../screens/review.js";
+import { renderImportScreen } from "../screens/import.js";
 
 export function initRouter() {
     window.addEventListener("hashchange", render);
@@ -18,6 +19,10 @@ function render() {
             renderReviewScreen(app);
             break;
 
+        case "#/import":
+            renderImportScreen(app);
+            break;
+            
         default:
             console.log("Rendering home screen");
             renderHomeScreen(app);

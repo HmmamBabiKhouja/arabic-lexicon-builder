@@ -27,6 +27,12 @@ export function renderHomeScreen(container) {
 
                 </button>
 
+                <button id="importScreenButton">
+
+                    استيراد ملف
+
+                </button>
+
                 <button
                     type="button"
                     id="statisticsButton">
@@ -61,5 +67,15 @@ function registerEvents() {
             window.location.hash = "#/review";
 
         });
+
+    document
+        .getElementById("importScreenButton")
+        .addEventListener("click", () => {
+
+            window.location.hash = "#/import";
+
+        });
+
+
 
 }
