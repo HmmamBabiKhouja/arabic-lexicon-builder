@@ -1,6 +1,7 @@
 import { parseTSV } from "../services/tsvParser.js";
 import { Word } from "../models/Word.js";
 import { setWords } from "../services/dictionaryService.js";
+import { openDatabase } from "../database/db.js";
 
 export function renderImportScreen(container) {
 
@@ -59,7 +60,8 @@ function registerEvents() {
     document
         .getElementById("importButton")
         .addEventListener("click", async () => {
-
+        await openDatabase();
+        console.log("Database ready.");
             const file =
                 document
                 .getElementById("fileInput")
