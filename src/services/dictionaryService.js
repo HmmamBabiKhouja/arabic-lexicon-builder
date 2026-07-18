@@ -1,81 +1,43 @@
 import { Word } from "../models/Word.js";
 
-/**
- * Temporary in-memory dictionary.
- * Later this will be replaced with IndexedDB.
- */
-
-const words = [
-    new Word(1, "كتاب", 16664531),
-    new Word(2, "مدرسة", 8500000),
-    new Word(3, "ذهب", 6300000),
-    new Word(4, "في", 50000000)
-];
-
+let words = [];
 let currentIndex = 0;
 
-/**
- * Returns the current word.
- */
-export function getCurrentWord() {
-
-    if (currentIndex >= words.length) {
-        return null;
-    }
-
-    return words[currentIndex];
+export function setWords(newWords) {
+    words = newWords;
+    currentIndex = 0;
 }
 
-/**
- * Move to the next word.
- */
-export function nextWord() {
+export function getCurrentWord() {
+    return words[currentIndex] ?? null;
+}
 
-    if (currentIndex < words.length - 1) {
+export function nextWord() {
+    if (currentIndex < words.length) {
         currentIndex++;
     }
 
     return getCurrentWord();
 }
 
-/**
- * Restart review.
- */
-export function resetReview() {
-
-    currentIndex = 0;
-
+export function getCurrentIndex() {
+    return Math.min(currentIndex + 1, words.length);
 }
 
-/**
- * Save the selected categories for a word.
- */
-export function saveCategories(wordId, categories) {
-
-    const word = words.find(w => w.id === wordId);
-
-    if (!word) {
-        return;
-    }
-
-    word.categories = [...categories];
-
-    word.updatedAt = new Date();
-
-    console.log("Saved:", word);
-
-}
-
-/**
- * Total number of words.
- */
 export function getTotalWords() {
     return words.length;
 }
 
-/**
- * Current position (1-based).
- */
-export function getCurrentIndex() {
-    return currentIndex + 1;
+export function saveCategories(wordId, categories) {
+
+    const word = words.find(w => w.id === wordId);
+
+    if (!word) return;
+
+    word.categories = [...categories];
+    word.updatedAt = new Date();
+}
+
+export function resetReview() {
+    currentIndex = 0;
 }

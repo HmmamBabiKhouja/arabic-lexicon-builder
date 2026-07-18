@@ -9,7 +9,7 @@ export class Word {
         this.id = id;
         this.word = word;
         this.frequency = frequency;
-
+        
         this.status = "pending";
 
         // A word can belong to multiple categories

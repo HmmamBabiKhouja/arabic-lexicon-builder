@@ -10,15 +10,19 @@ export async function parseTSV(file) {
         .split(/\r?\n/)
         .filter(line => line.trim() !== "");
 
-    return rows.map(row => {
+        return rows
+            .map(row => {
+                const parts = row.split("\t");
 
-        const [word, frequency] = row.split("\t");
+                if (parts.length !== 2) {
+                    return null;
+                }
 
-        return {
-            word,
-            frequency: Number(frequency)
-        };
-
-    });
+                return {
+                    word: parts[0],
+                    frequency: Number(parts[1])
+                };
+            })
+            .filter(Boolean);
 
 }

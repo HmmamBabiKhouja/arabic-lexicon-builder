@@ -1,4 +1,6 @@
 import { parseTSV } from "../services/tsvParser.js";
+import { Word } from "../models/Word.js";
+import { setWords } from "../services/dictionaryService.js";
 
 export function renderImportScreen(container) {
 
@@ -72,13 +74,31 @@ function registerEvents() {
             }
 
             const words = await parseTSV(file);
+        
+            const dictionary = words.map((row, index) =>
+
+                new Word(
+                    index + 1,
+                    row.word,
+                    row.frequency
+                )
+
+            );
+
+            setWords(dictionary);
 
             document
                 .getElementById("status")
                 .textContent =
-                `Imported ${words.length} words`;
+                `Imported ${dictionary.length} words`;
 
-            console.log(words.slice(0, 10));
+            setTimeout(() => {
+
+                window.location.hash = "#/review";
+
+            }, 1000);
+
+            window.location.hash = "#/review";
 
         });
 
