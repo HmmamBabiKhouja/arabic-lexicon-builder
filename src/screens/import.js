@@ -1,7 +1,11 @@
 import { parseTSV } from "../services/tsvParser.js";
 import { Word } from "../models/Word.js";
 import { setWords } from "../services/dictionaryService.js";
-import { openDatabase } from "../database/db.js";
+import {
+    openDatabase,
+    saveWords,
+    getWords
+} from "../database/db.js";
 
 export function renderImportScreen(container) {
 
@@ -60,47 +64,46 @@ function registerEvents() {
     document
         .getElementById("importButton")
         .addEventListener("click", async () => {
-        await openDatabase();
-        console.log("Database ready.");
-            const file =
-                document
+
+            await openDatabase();
+
+            const file = document
                 .getElementById("fileInput")
                 .files[0];
 
             if (!file) {
 
                 alert("اختر ملف TSV أولاً");
-
                 return;
 
             }
 
             const words = await parseTSV(file);
-        
-            const dictionary = words.map((row, index) =>
 
+            const dictionary = words.map((row, index) =>
                 new Word(
                     index + 1,
                     row.word,
                     row.frequency
                 )
-
             );
+
+            await saveWords(dictionary);
+
+            const stored = await getWords();
 
             setWords(dictionary);
 
             document
                 .getElementById("status")
                 .textContent =
-                `Imported ${dictionary.length} words`;
+                `✅ Saved ${stored.length} words`;
 
             setTimeout(() => {
 
                 window.location.hash = "#/review";
 
             }, 1000);
-
-            window.location.hash = "#/review";
 
         });
 

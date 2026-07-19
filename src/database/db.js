@@ -84,16 +84,14 @@ export async function saveWords(words) {
     return new Promise((resolve, reject) => {
 
         const tx = database.transaction(
-            STORE_NAME,
+            STORES.WORDS,
             "readwrite"
         );
 
         const store = tx.objectStore(STORES.WORDS);
 
         words.forEach(word => {
-
             store.put(word);
-
         });
 
         tx.oncomplete = () => resolve();
@@ -111,25 +109,23 @@ export async function getWords() {
     return new Promise((resolve, reject) => {
 
         const tx = database.transaction(
-            STORE_NAME,
+            STORES.WORDS,
             "readonly"
         );
 
-        const store = tx.objectStore(STORES.WORDS); 
+        const store = tx.objectStore(STORES.WORDS);
+
         const request = store.getAll();
 
         request.onsuccess = () => {
-
             resolve(request.result);
-
         };
 
         request.onerror = () => {
-
             reject(request.error);
-
         };
 
     });
 
 }
+
