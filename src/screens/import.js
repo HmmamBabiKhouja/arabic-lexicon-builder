@@ -87,14 +87,12 @@ function registerEvents() {
 
             await importWords(dictionary);
 
-            const stored = await getWords();
-
             setWords(dictionary);
 
             document
                 .getElementById("status")
                 .textContent =
-                `✅ Saved ${stored.length} words`;
+                `✅ Saved ${dictionary.length} words`;
 
             setTimeout(() => {
 
