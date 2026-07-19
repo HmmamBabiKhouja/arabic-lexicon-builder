@@ -6,14 +6,21 @@ import {
     getTotalWords
 } from "../services/dictionaryService.js";
 
+import { saveWordReview,
+        loadWordReview
+} from "../repositories/ReviewRepository.js";
+
 import { categories } from "../config/categories.js";
 
 /**
  * Review Screen
  */
-export function renderReviewScreen(container) {
+export async function renderReviewScreen(container) {
 
     const currentWord = getCurrentWord();
+    const savedReview = currentWord
+    ? await loadWordReview(currentWord.id)
+    : null;
     const currentIndex = getCurrentIndex();
     const totalWords = getTotalWords();
 
@@ -21,17 +28,30 @@ export function renderReviewScreen(container) {
         ? currentWord.word
         : "انتهت المراجعة";
 
+    const selectedCategories =
+        savedReview?.categories ?? [];
+
     const categoryHTML = categories
-    .map(category => `
-        <label>
-            <input
-                type="checkbox"
-                value="${category.id}"
-            >
-            ${category.label}
-        </label>
-    `)
-    .join("");    
+        .map(category => `
+
+            <label>
+
+                <input
+                    type="checkbox"
+                    value="${category.id}"
+                    ${
+                        selectedCategories.includes(category.id)
+                            ? "checked"
+                            : ""
+                    }
+                >
+
+                ${category.label}
+
+            </label>
+
+        `)
+        .join("");   
 
     container.innerHTML = `
         <section class="welcome-card">
@@ -79,7 +99,7 @@ function registerEvents() {
 
     document
     .getElementById("nextButton")
-    .addEventListener("click", () => {
+    .addEventListener("click", async () => {
 
         const currentWord = getCurrentWord();
 
@@ -102,9 +122,23 @@ function registerEvents() {
             selectedCategories
         );
 
+        await saveWordReview({
+
+            wordId: currentWord.id,
+
+            categories: selectedCategories,
+
+            notes: "",
+
+            accepted: true,
+
+            updatedAt: new Date()
+
+        });
+
         nextWord();
 
-        renderReviewScreen(
+        await renderReviewScreen(
             document.getElementById("app")
         );
 

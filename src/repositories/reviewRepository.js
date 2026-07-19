@@ -5,7 +5,7 @@ import {
 
 export async function saveWordReview(review) {
 
-    await saveReview(review);
+    return await saveReview(review);
 
 }
 
