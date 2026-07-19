@@ -129,3 +129,58 @@ export async function getWords() {
 
 }
 
+export async function saveReview(review) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.REVIEWS,
+            "readwrite"
+        );
+
+        const store = tx.objectStore(
+            STORES.REVIEWS
+        );
+
+        store.put(review);
+
+        tx.oncomplete = () => resolve();
+
+        tx.onerror = () => reject(tx.error);
+
+    });
+
+}
+
+export async function getReview(wordId) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.REVIEWS,
+            "readonly"
+        );
+
+        const store = tx.objectStore(
+            STORES.REVIEWS
+        );
+
+        const request = store.get(wordId);
+
+        request.onsuccess = () =>
+            resolve(request.result);
+
+        request.onerror = () =>
+            reject(request.error);
+
+    });
+
+}
+
+
+
+
