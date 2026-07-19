@@ -1,11 +1,8 @@
 import { parseTSV } from "../services/tsvParser.js";
 import { Word } from "../models/Word.js";
 import { setWords } from "../services/dictionaryService.js";
-import {
-    openDatabase,
-    saveWords,
-    getWords
-} from "../database/db.js";
+import { openDatabase } from "../database/db.js";
+import { importWords } from "../repositories/WordRepository.js";
 
 export function renderImportScreen(container) {
 
@@ -88,7 +85,7 @@ function registerEvents() {
                 )
             );
 
-            await saveWords(dictionary);
+            await importWords(dictionary);
 
             const stored = await getWords();
 

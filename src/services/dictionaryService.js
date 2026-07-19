@@ -41,3 +41,9 @@ export function saveCategories(wordId, categories) {
 export function resetReview() {
     currentIndex = 0;
 }
+
+export function hasWords() {
+
+    return words.length > 0;
+
+}
