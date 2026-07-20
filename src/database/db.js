@@ -1,5 +1,5 @@
 const DB_NAME = "arabic-review-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORES = {
     WORDS: "words",
     REVIEWS: "reviews",
@@ -181,6 +181,66 @@ export async function getReview(wordId) {
 
 }
 
+export async function saveSetting(key, value) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.SETTINGS,
+            "readwrite"
+        );
+
+        const store = tx.objectStore(
+            STORES.SETTINGS
+        );
+
+        store.put({
+            key,
+            value
+        });
+
+        tx.oncomplete = () => resolve();
+
+        tx.onerror = () => reject(tx.error);
+
+    });
+
+}
+
+export async function getSetting(key) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.SETTINGS,
+            "readonly"
+        );
+
+        const store = tx.objectStore(
+            STORES.SETTINGS
+        );
+
+        const request = store.get(key);
+
+        request.onsuccess = () => {
+
+            resolve(request.result?.value);
+
+        };
+
+        request.onerror = () => {
+
+            reject(request.error);
+
+        };
+
+    });
+
+}
 
 
 

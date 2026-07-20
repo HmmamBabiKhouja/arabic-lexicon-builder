@@ -6,9 +6,10 @@ import {
     getTotalWords
 } from "../services/dictionaryService.js";
 
-import { saveWordReview,
-        loadWordReview
-} from "../repositories/ReviewRepository.js";
+import {
+    saveReview,
+    getReview
+} from "../services/reviewService.js";
 
 import { categories } from "../config/categories.js";
 
@@ -19,8 +20,8 @@ export async function renderReviewScreen(container) {
 
     const currentWord = getCurrentWord();
     const savedReview = currentWord
-    ? await loadWordReview(currentWord.id)
-    : null;
+        ? await getReview(currentWord.id)
+        : null;
     const currentIndex = getCurrentIndex();
     const totalWords = getTotalWords();
 
@@ -122,19 +123,10 @@ function registerEvents() {
             selectedCategories
         );
 
-        await saveWordReview({
-
-            wordId: currentWord.id,
-
-            categories: selectedCategories,
-
-            notes: "",
-
-            accepted: true,
-
-            updatedAt: new Date()
-
-        });
+        await saveReview(
+            currentWord.id,
+            selectedCategories
+        );
 
         nextWord();
 
