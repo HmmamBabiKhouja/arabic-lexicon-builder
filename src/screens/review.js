@@ -11,6 +11,8 @@ import {
     getReview
 } from "../services/reviewService.js";
 
+import { saveCurrentIndex } from "../services/settingsService.js";
+import { loadCurrentIndex } from "../services/settingsService.js";
 import { categories } from "../config/categories.js";
 
 /**
@@ -128,7 +130,13 @@ function registerEvents() {
             selectedCategories
         );
 
+
         nextWord();
+
+        await saveCurrentIndex(getCurrentIndex());
+
+        const value = await loadCurrentIndex();
+        console.log("Loaded index =", value);
 
         await renderReviewScreen(
             document.getElementById("app")

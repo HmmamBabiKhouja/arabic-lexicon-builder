@@ -1,4 +1,5 @@
 import { Word } from "../models/Word.js";
+import { loadDictionary } from "../repositories/WordRepository.js";
 
 let words = [];
 let currentIndex = 0;
@@ -24,6 +25,22 @@ export function getCurrentIndex() {
     return Math.min(currentIndex + 1, words.length);
 }
 
+export function setCurrentIndex(index) {
+
+    if (index < 0) {
+        currentIndex = 0;
+        return;
+    }
+
+    if (index >= words.length) {
+        currentIndex = words.length - 1;
+        return;
+    }
+
+    currentIndex = index;
+
+}
+
 export function getTotalWords() {
     return words.length;
 }
@@ -45,5 +62,21 @@ export function resetReview() {
 export function hasWords() {
 
     return words.length > 0;
+
+}
+
+export async function initializeDictionary() {
+
+    const words = await loadDictionary();
+
+    if (!words.length) {
+
+        return false;
+
+    }
+
+    setWords(words);
+
+    return true;
 
 }

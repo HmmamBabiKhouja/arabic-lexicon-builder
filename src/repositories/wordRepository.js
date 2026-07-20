@@ -30,3 +30,9 @@ export async function loadWords() {
     return await getWords();
 
 }
+
+export async function loadDictionary() {
+
+    return await getWords();
+
+}
