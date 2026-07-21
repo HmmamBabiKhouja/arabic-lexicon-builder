@@ -1,8 +1,12 @@
-/**
- * Home Screen
- */
+import { getHomeState } from "../services/homeService.js";
+import { hasDictionary } from "../services/homeService.js";
 
-export function renderHomeScreen(container) {
+export async function renderHomeScreen(container) {
+
+    const state = await getHomeState();
+    const dictionaryExists = await hasDictionary();
+
+    console.log("Dictionary exists:", dictionaryExists);
 
     container.innerHTML = `
         <section class="welcome-card">
@@ -16,6 +20,18 @@ export function renderHomeScreen(container) {
             <p class="subtitle">
                 Ready to review your dictionary.
             </p>
+
+            <div class="progress-card">
+
+                <strong>
+
+                    ${state.currentIndex.toLocaleString()}
+                    /
+                    ${state.totalWords.toLocaleString()}
+
+                </strong>
+
+            </div>
 
             <div class="button-group">
 

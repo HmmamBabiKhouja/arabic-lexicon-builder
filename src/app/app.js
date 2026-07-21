@@ -8,19 +8,30 @@
 
 import { appConfig } from "../config/appConfig.js";
 import { initRouter } from "./router.js";
+import { startup } from "./startup.js";
 
 /**
  * Initialize the application.
  */
-function initializeApp() {
+async function initializeApp() {
     console.log("=================================");
     console.log(`${appConfig.name} v${appConfig.version}`);
     console.log("Initializing...");
     console.log("=================================");
 
-    applyTheme();
-    registerEvents();
-    initRouter();
+applyTheme();
+
+const initialized = await startup();
+
+console.log(
+    initialized
+        ? "Dictionary loaded."
+        : "No dictionary found."
+);
+
+registerEvents();
+
+initRouter();
 
     console.log("Application Ready");
 }

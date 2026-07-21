@@ -38,7 +38,7 @@ async function render() {
 
             console.log("Rendering home screen");
 
-            renderHomeScreen(app);
+            await renderHomeScreen(app);
 
     }
 
