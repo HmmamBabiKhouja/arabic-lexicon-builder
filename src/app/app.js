@@ -33,7 +33,6 @@ registerEvents();
 
 initRouter();
 
-    console.log("Application Ready");
 }
 
 /**

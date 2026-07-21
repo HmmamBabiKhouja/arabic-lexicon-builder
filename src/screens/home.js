@@ -1,97 +1,95 @@
 import { getHomeState } from "../services/homeService.js";
-import { hasDictionary } from "../services/homeService.js";
 
+/**
+ * Home Screen
+ */
 export async function renderHomeScreen(container) {
 
     const state = await getHomeState();
-    const dictionaryExists = await hasDictionary();
 
-    console.log("Dictionary exists:", dictionaryExists);
+    console.log("Home State:", state);
+
+    let mainButton = "";
+
+    if (state.hasDictionary) {
+
+        mainButton = `
+            <button id="startButton">
+                متابعة المراجعة
+            </button>
+        `;
+
+    } else {
+
+        mainButton = `
+            <button id="importButton">
+                استيراد القاموس
+            </button>
+        `;
+
+    }
 
     container.innerHTML = `
+
         <section class="welcome-card">
 
             <h2>معجم</h2>
 
-            <p lang="en">
+            <p>
                 Arabic Lexicon Builder
-            </p>
-
-            <p class="subtitle">
-                Ready to review your dictionary.
             </p>
 
             <div class="progress-card">
 
-                <strong>
-
-                    ${state.currentIndex.toLocaleString()}
-                    /
+                <p>
+                    <strong>عدد الكلمات:</strong>
                     ${state.totalWords.toLocaleString()}
+                </p>
 
-                </strong>
-
-            </div>
-
-            <div class="button-group">
-
-                <button
-                    type="button"
-                    id="startButton">
-
-                    ابدأ المراجعة
-
-                </button>
-
-                <button id="importScreenButton">
-
-                    استيراد ملف
-
-                </button>
-
-                <button
-                    type="button"
-                    id="statisticsButton">
-
-                    الإحصائيات
-
-                </button>
-
-                <button
-                    type="button"
-                    id="settingsButton">
-
-                    الإعدادات
-
-                </button>
+                <p>
+                    <strong>آخر موضع:</strong>
+                    ${state.currentIndex.toLocaleString()}
+                </p>
 
             </div>
+
+            <br>
+
+            ${mainButton}
 
         </section>
+
     `;
 
-    registerEvents();
+    registerEvents(state);
 
 }
 
-function registerEvents() {
+/**
+ * Register events
+ */
+function registerEvents(state) {
 
-    document
-        .getElementById("startButton")
-        .addEventListener("click", () => {
+    if (state.hasDictionary) {
 
-            window.location.hash = "#/review";
+        document
+            .getElementById("startButton")
+            ?.addEventListener("click", () => {
 
-        });
+                window.location.hash = "#/review";
 
-    document
-        .getElementById("importScreenButton")
-        .addEventListener("click", () => {
+            });
 
-            window.location.hash = "#/import";
+    } else {
 
-        });
+        document
+            .getElementById("importButton")
+            ?.addEventListener("click", () => {
 
+                window.location.hash = "#/import";
 
+            });
+
+    }
 
 }
