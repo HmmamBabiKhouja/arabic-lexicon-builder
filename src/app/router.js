@@ -1,6 +1,7 @@
 import { renderHomeScreen } from "../screens/home.js";
 import { renderReviewScreen } from "../screens/review.js";
 import { renderImportScreen } from "../screens/import.js";
+import { renderSearchScreen } from "../screens/search.js";
 
 export function initRouter() {
 
@@ -31,6 +32,12 @@ async function render() {
         case "#/import":
 
             renderImportScreen(app);
+
+            break;
+
+        case "#/search":
+
+            await renderSearchScreen(app);
 
             break;
 

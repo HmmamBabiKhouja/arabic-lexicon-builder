@@ -15,7 +15,7 @@ export async function renderHomeScreen(container) {
 
         mainButton = `
             <button id="startButton">
-                متابعة المراجعة
+                ▶ متابعة المراجعة
             </button>
         `;
 
@@ -23,11 +23,17 @@ export async function renderHomeScreen(container) {
 
         mainButton = `
             <button id="importButton">
-                استيراد القاموس
+                📂 استيراد القاموس
             </button>
         `;
 
     }
+
+    const searchButton = `
+        <button id="searchButton">
+            🔍 البحث
+        </button>
+    `;
 
     container.innerHTML = `
 
@@ -57,6 +63,10 @@ export async function renderHomeScreen(container) {
 
             ${mainButton}
 
+            <br><br>
+
+            ${searchButton}
+
         </section>
 
     `;
@@ -66,7 +76,7 @@ export async function renderHomeScreen(container) {
 }
 
 /**
- * Register events
+ * Register button events
  */
 function registerEvents(state) {
 
@@ -91,5 +101,13 @@ function registerEvents(state) {
             });
 
     }
+
+    document
+        .getElementById("searchButton")
+        ?.addEventListener("click", () => {
+
+            window.location.hash = "#/search";
+
+        });
 
 }
