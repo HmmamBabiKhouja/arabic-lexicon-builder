@@ -6,13 +6,6 @@ import {
     getTotalWords
 } from "../services/dictionaryService.js";
 
-import {
-    saveReview,
-    getReview
-} from "../services/reviewService.js";
-
-import { saveCurrentIndex } from "../services/settingsService.js";
-import { loadCurrentIndex } from "../services/settingsService.js";
 import { categories } from "../config/categories.js";
 
 /**
@@ -21,56 +14,79 @@ import { categories } from "../config/categories.js";
 export async function renderReviewScreen(container) {
 
     const currentWord = getCurrentWord();
-    const savedReview = currentWord
-        ? await getReview(currentWord.id)
-        : null;
+
+    if (!currentWord) {
+
+        container.innerHTML = `
+            <section class="welcome-card">
+
+                <h2>تمت مراجعة جميع الكلمات 🎉</h2>
+
+                <button id="backButton">
+                    العودة للرئيسية
+                </button>
+
+            </section>
+        `;
+
+        document
+            .getElementById("backButton")
+            .addEventListener("click", () => {
+
+                window.location.hash = "#/";
+
+            });
+
+        return;
+    }
+
     const currentIndex = getCurrentIndex();
     const totalWords = getTotalWords();
 
-    const wordText = currentWord
-        ? currentWord.word
-        : "انتهت المراجعة";
-
-    const selectedCategories =
-        savedReview?.categories ?? [];
-
     const categoryHTML = categories
         .map(category => `
-
             <label>
 
                 <input
                     type="checkbox"
                     value="${category.id}"
-                    ${
-                        selectedCategories.includes(category.id)
-                            ? "checked"
-                            : ""
-                    }
+                    ${currentWord.categories.includes(category.id) ? "checked" : ""}
+
                 >
 
                 ${category.label}
 
             </label>
-
         `)
-        .join("");   
+        .join("");
 
     container.innerHTML = `
+
         <section class="welcome-card">
 
             <div class="progress-info">
 
-                <strong>${currentIndex} / ${totalWords}</strong>
+                <strong>
+
+                    ${currentIndex} / ${totalWords}
+
+                </strong>
 
             </div>
 
             <h2>Review</h2>
 
-            <h1 class="word">${wordText}</h1>
+            <h1 class="word">
+
+                ${currentWord.currentWord}
+
+            </h1>
+
             <p class="frequency">
+
                 Frequency:
-                ${currentWord ? currentWord.frequency.toLocaleString() : "-"}
+                ${currentWord.frequency.toLocaleString()}
+
             </p>
 
             <div class="categories">
@@ -79,19 +95,32 @@ export async function renderReviewScreen(container) {
 
             </div>
 
+            <br>
+
             <div class="button-group">
 
+                <button id="editButton">
+
+                    ✏ Edit
+
+                </button>
+
                 <button id="nextButton">
+
                     التالي
+
                 </button>
 
                 <button id="backButton">
+
                     العودة للرئيسية
+
                 </button>
 
             </div>
 
         </section>
+
     `;
 
     registerEvents();
@@ -101,47 +130,57 @@ export async function renderReviewScreen(container) {
 function registerEvents() {
 
     document
-    .getElementById("nextButton")
-    .addEventListener("click", async () => {
+        .getElementById("editButton")
+        ?.addEventListener("click", () => {
 
-        const currentWord = getCurrentWord();
+            const currentWord = getCurrentWord();
 
-        if (!currentWord) {
-            return;
-        }
+            window.location.hash =
+                "#/word/" + currentWord.id;
 
-        const selectedCategories = [];
+        });
 
-        document
-            .querySelectorAll(".categories input:checked")
-            .forEach(cb => {
+    document
+        .getElementById("nextButton")
+        .addEventListener("click", () => {
 
-                selectedCategories.push(cb.value);
+            const currentWord = getCurrentWord();
 
-            });
+            if (!currentWord) {
 
-        saveCategories(
-            currentWord.id,
-            selectedCategories
-        );
+                return;
 
-        await saveReview(
-            currentWord.id,
-            selectedCategories
-        );
+            }
 
+            const selectedCategories = [];
 
-        nextWord();
+            document
+                .querySelectorAll(".categories input:checked")
+                .forEach(cb => {
 
-        await saveCurrentIndex(getCurrentIndex());
+                    selectedCategories.push(cb.value);
 
-        const value = await loadCurrentIndex();
-        console.log("Loaded index =", value);
+                });
 
-        await renderReviewScreen(
-            document.getElementById("app")
-        );
+            saveCategories(
+                currentWord.id,
+                selectedCategories
+            );
 
-    });
+            nextWord();
+
+            renderReviewScreen(
+                document.getElementById("app")
+            );
+
+        });
+
+    document
+        .getElementById("backButton")
+        .addEventListener("click", () => {
+
+            window.location.hash = "#/";
+
+        });
 
 }

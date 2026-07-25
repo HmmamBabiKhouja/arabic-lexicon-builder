@@ -2,6 +2,7 @@ import { renderHomeScreen } from "../screens/home.js";
 import { renderReviewScreen } from "../screens/review.js";
 import { renderImportScreen } from "../screens/import.js";
 import { renderSearchScreen } from "../screens/search.js";
+import { renderWordEditor } from "../screens/wordEditor.js";
 
 export function initRouter() {
 
@@ -14,11 +15,23 @@ export function initRouter() {
 async function render() {
 
     const app = document.getElementById("app");
-
     const route = window.location.hash || "#/";
 
     console.log("Current route:", route);
 
+    // Dynamic routes
+    if (route.startsWith("#/word/")) {
+
+        const id = Number(route.split("/")[2]);
+
+        console.log("Rendering word editor:", id);
+
+        await renderWordEditor(app, id);
+
+        return;
+    }
+
+    // Static routes
     switch (route) {
 
         case "#/review":
@@ -31,11 +44,15 @@ async function render() {
 
         case "#/import":
 
-            renderImportScreen(app);
+            console.log("Rendering import screen");
+
+            await renderImportScreen(app);
 
             break;
 
         case "#/search":
+
+            console.log("Rendering search screen");
 
             await renderSearchScreen(app);
 
