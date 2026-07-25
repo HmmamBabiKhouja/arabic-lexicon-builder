@@ -41,6 +41,9 @@ export async function getWord(id) {
 
     const words = await getWords();
 
+    console.log("Loaded", words.length, "words");
+    console.log("First word:", words[0]);
+
     return words.find(word => word.id === id) ?? null;
 
 }
@@ -48,5 +51,15 @@ export async function getWord(id) {
 export async function updateWord(updatedWord) {
 
     await saveWords([updatedWord]);
+
+}
+
+export async function findWordByCurrentWord(currentWord) {
+
+    const words = await getWords();
+
+    return words.find(word =>
+        word.currentWord === currentWord
+    ) ?? null;
 
 }

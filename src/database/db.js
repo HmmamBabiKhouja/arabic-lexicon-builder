@@ -242,5 +242,35 @@ export async function getSetting(key) {
 
 }
 
+export async function deleteDatabase() {
+
+    if (db) {
+
+        db.close();
+
+    }
+
+    return new Promise((resolve, reject) => {
+
+        const request = indexedDB.deleteDatabase(DB_NAME);
+
+        request.onsuccess = () => {
+
+            console.log("Database deleted.");
+
+            resolve();
+
+        };
+
+        request.onerror = () => {
+
+            reject(request.error);
+
+        };
+
+    });
+
+}
+
 
 

@@ -1,4 +1,6 @@
 import { getHomeState } from "../services/homeService.js";
+import { deleteDatabase } from "../database/db.js";
+import { appConfig } from "../config/appConfig.js";
 
 /**
  * Home Screen
@@ -67,6 +69,14 @@ export async function renderHomeScreen(container) {
 
             ${searchButton}
 
+            <br><br>
+
+            ${appConfig.developerMode ? `
+                <button id="resetButton">
+                    🗑 Reset Database
+                </button>
+            ` : ""}
+
         </section>
 
     `;
@@ -109,5 +119,25 @@ function registerEvents(state) {
             window.location.hash = "#/search";
 
         });
+
+    document
+    .getElementById("resetButton")
+    ?.addEventListener("click", async () => {
+
+        const confirmed = confirm(
+            "Delete the entire database?"
+        );
+
+        if (!confirmed) {
+
+            return;
+
+        }
+
+        await deleteDatabase();
+
+        location.reload();
+
+    });    
 
 }

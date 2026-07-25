@@ -85,6 +85,8 @@ function registerEvents() {
                 )
             );
 
+            console.log("my dectionary "+dictionary[0]);
+
             await importWords(dictionary);
 
             setWords(dictionary);

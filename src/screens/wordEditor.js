@@ -1,6 +1,7 @@
 import {
     loadWord,
-    saveWord
+    saveWord,
+    checkDuplicate
 } from "../services/wordService.js";
 
 import { categories } from "../config/categories.js";
@@ -8,6 +9,9 @@ import { categories } from "../config/categories.js";
 export async function renderWordEditor(container, wordId) {
 
     const word = await loadWord(wordId);
+
+    console.log("Word ID:", wordId);
+    console.log("Loaded word:", word);
 
     if (!word) {
 
@@ -87,6 +91,8 @@ export async function renderWordEditor(container, wordId) {
                 id="currentWord"
                 value="${word.currentWord}"
             >
+            <div id="duplicateWarning">
+            </div>
 
             <br><br>
 
@@ -136,6 +142,51 @@ export async function renderWordEditor(container, wordId) {
         </section>
 
     `;
+
+    const currentWordInput =
+    document.getElementById("currentWord");
+
+    currentWordInput.addEventListener(
+        "input",
+        async () => {
+
+            const duplicate =
+                await checkDuplicate(
+                    word.id,
+                    currentWordInput.value.trim()
+                );
+
+            const warning =
+                document.getElementById("duplicateWarning");
+
+            if (!duplicate) {
+
+                warning.innerHTML = "";
+
+                return;
+
+            }
+
+            warning.innerHTML = `
+
+                <div class="warning">
+
+                    ⚠ Duplicate found
+
+                    <br>
+
+                    ID: ${duplicate.id}
+
+                    <br>
+
+                    Word: ${duplicate.currentWord}
+
+                </div>
+
+            `;
+
+        }
+    );
 
     document
         .getElementById("saveButton")
