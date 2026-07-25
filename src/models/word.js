@@ -1,18 +1,19 @@
-/**
- * Word model
- */
-
 export class Word {
 
     constructor(id, word, frequency = 0) {
 
         this.id = id;
-        this.word = word;
+
+        // Original TSV word (never changes)
+        this.originalWord = word;
+
+        // Editable lexicon word
+        this.currentWord = word;
+
         this.frequency = frequency;
-        
+
         this.status = "pending";
 
-        // A word can belong to multiple categories
         this.categories = [];
 
         this.notes = "";

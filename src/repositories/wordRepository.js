@@ -36,3 +36,17 @@ export async function loadDictionary() {
     return await getWords();
 
 }
+
+export async function getWord(id) {
+
+    const words = await getWords();
+
+    return words.find(word => word.id === id) ?? null;
+
+}
+
+export async function updateWord(updatedWord) {
+
+    await saveWords([updatedWord]);
+
+}
