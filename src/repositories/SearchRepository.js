@@ -2,7 +2,7 @@ import { openDatabase } from "../database/db.js";
 
 const STORE_NAME = "words";
 
-export async function searchWords(query, limit = 50) {
+export async function searchWordsFromDatabase(query, limit = 50) {
 
     const database = await openDatabase();
 
@@ -15,22 +15,53 @@ export async function searchWords(query, limit = 50) {
 
         const store = tx.objectStore(STORE_NAME);
 
-        const request = store.getAll();
+        const request = store.openCursor();
 
-        request.onsuccess = () => {
+        const results = [];
 
-            const results =
-                request.result
-                .filter(word =>
-                    word.word.startsWith(query)
-                )
-                .slice(0, limit);
+        request.onsuccess = event => {
 
-            resolve(results);
+            const cursor = event.target.result;
+
+            if (!cursor) {
+
+                resolve(results);
+
+                return;
+
+            }
+
+            const word = cursor.value;
+
+            if (
+
+                word.currentWord.startsWith(query) ||
+
+                word.originalWord.startsWith(query)
+
+            ) {
+
+                results.push(word);
+
+            }
+
+            if (results.length >= limit) {
+
+                resolve(results);
+
+                return;
+
+            }
+
+            cursor.continue();
 
         };
 
-        request.onerror = () => reject(request.error);
+        request.onerror = () => {
+
+            reject(request.error);
+
+        };
 
     });
 

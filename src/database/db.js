@@ -1,5 +1,6 @@
 const DB_NAME = "arabic-review-db";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
+
 const STORES = {
     WORDS: "words",
     REVIEWS: "reviews",
@@ -24,17 +25,35 @@ export async function openDatabase() {
 
             db = event.target.result;
 
+            // WORDS
             if (!db.objectStoreNames.contains(STORES.WORDS)) {
 
-                db.createObjectStore(
+                const wordStore = db.createObjectStore(
                     STORES.WORDS,
                     {
                         keyPath: "id"
                     }
                 );
 
+                wordStore.createIndex(
+                    "currentWord",
+                    "currentWord",
+                    {
+                        unique: false
+                    }
+                );
+
+                wordStore.createIndex(
+                    "originalWord",
+                    "originalWord",
+                    {
+                        unique: false
+                    }
+                );
+
             }
 
+            // REVIEWS
             if (!db.objectStoreNames.contains(STORES.REVIEWS)) {
 
                 db.createObjectStore(
@@ -46,6 +65,7 @@ export async function openDatabase() {
 
             }
 
+            // SETTINGS
             if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
 
                 db.createObjectStore(
@@ -91,7 +111,9 @@ export async function saveWords(words) {
         const store = tx.objectStore(STORES.WORDS);
 
         words.forEach(word => {
+
             store.put(word);
+
         });
 
         tx.oncomplete = () => resolve();
@@ -118,11 +140,15 @@ export async function getWords() {
         const request = store.getAll();
 
         request.onsuccess = () => {
+
             resolve(request.result);
+
         };
 
         request.onerror = () => {
+
             reject(request.error);
+
         };
 
     });
@@ -140,9 +166,7 @@ export async function saveReview(review) {
             "readwrite"
         );
 
-        const store = tx.objectStore(
-            STORES.REVIEWS
-        );
+        const store = tx.objectStore(STORES.REVIEWS);
 
         store.put(review);
 
@@ -165,17 +189,21 @@ export async function getReview(wordId) {
             "readonly"
         );
 
-        const store = tx.objectStore(
-            STORES.REVIEWS
-        );
+        const store = tx.objectStore(STORES.REVIEWS);
 
         const request = store.get(wordId);
 
-        request.onsuccess = () =>
+        request.onsuccess = () => {
+
             resolve(request.result);
 
-        request.onerror = () =>
+        };
+
+        request.onerror = () => {
+
             reject(request.error);
+
+        };
 
     });
 
@@ -192,9 +220,7 @@ export async function saveSetting(key, value) {
             "readwrite"
         );
 
-        const store = tx.objectStore(
-            STORES.SETTINGS
-        );
+        const store = tx.objectStore(STORES.SETTINGS);
 
         store.put({
             key,
@@ -220,9 +246,7 @@ export async function getSetting(key) {
             "readonly"
         );
 
-        const store = tx.objectStore(
-            STORES.SETTINGS
-        );
+        const store = tx.objectStore(STORES.SETTINGS);
 
         const request = store.get(key);
 
@@ -271,6 +295,3 @@ export async function deleteDatabase() {
     });
 
 }
-
-
-

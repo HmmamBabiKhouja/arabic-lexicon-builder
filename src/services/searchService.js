@@ -1,15 +1,17 @@
 import {
-    searchWords
-} from "../repositories/SearchRepository.js";
+    searchWordsFromDatabase
+} from "../repositories/searchRepository.js";
 
-export async function search(query) {
+export async function searchWords(query) {
 
-    if (!query.trim()) {
+    const normalized = query.trim();
+
+    if (!normalized) {
 
         return [];
 
     }
 
-    return await searchWords(query);
+    return await searchWordsFromDatabase(normalized);
 
 }
