@@ -10,6 +10,9 @@ export class Word {
         // Editable lexicon word
         this.currentWord = word;
 
+        // Used for searching & duplicate detection
+        this.searchKey = word;
+
         this.frequency = frequency;
 
         this.status = "pending";

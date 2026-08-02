@@ -35,7 +35,7 @@ export async function searchWordsFromDatabase(query, limit = 50) {
 
             if (
 
-                word.currentWord.startsWith(query) ||
+                word.searchKey.startsWith(query) ||
 
                 word.originalWord.startsWith(query)
 

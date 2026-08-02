@@ -19,6 +19,8 @@ export async function saveWord(word) {
 
     }
 
+    word.searchKey = word.currentWord;
+
     word.updatedAt = new Date();
 
     await updateWord(word);

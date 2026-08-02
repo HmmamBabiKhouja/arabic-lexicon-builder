@@ -271,12 +271,19 @@ export async function deleteDatabase() {
     if (db) {
 
         db.close();
+        db = null;
 
     }
 
     return new Promise((resolve, reject) => {
 
         const request = indexedDB.deleteDatabase(DB_NAME);
+
+        request.onblocked = () => {
+
+            console.log("Database deletion is BLOCKED.");
+
+        };
 
         request.onsuccess = () => {
 
