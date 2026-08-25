@@ -1,10 +1,12 @@
 import {
     getWord,
     updateWord,
-    findWordByCurrentWord
+    findWordBySearchKey
 } from "../repositories/WordRepository.js";
 
-import { normalizeArabic } from "../utils/arabicNormalizer.js";
+import {
+    normalizeArabic
+} from "../utils/arabicNormalizer.js";
 
 
 export async function loadWord(id) {
@@ -12,6 +14,7 @@ export async function loadWord(id) {
     return await getWord(id);
 
 }
+
 
 export async function saveWord(word) {
 
@@ -21,18 +24,45 @@ export async function saveWord(word) {
 
     }
 
-    word.searchKey =
-        normalizeArabic(word.currentWord);
 
-    word.updatedAt = new Date();
+    word.searchKey =
+        normalizeArabic(
+            word.currentWord
+        );
+
+
+    word.updatedAt =
+        new Date();
+
 
     await updateWord(word);
+
 }
 
-export async function checkDuplicate(wordId, currentWord) {
+
+export async function checkDuplicate(
+    wordId,
+    currentWord
+) {
+
+    const searchKey =
+        normalizeArabic(
+            currentWord
+        );
+
+
+    if (!searchKey) {
+
+        return null;
+
+    }
+
 
     const existing =
-        await findWordByCurrentWord(currentWord);
+        await findWordBySearchKey(
+            searchKey
+        );
+
 
     if (!existing) {
 
@@ -40,11 +70,16 @@ export async function checkDuplicate(wordId, currentWord) {
 
     }
 
-    if (existing.id === wordId) {
+
+    if (
+        String(existing.id) ===
+        String(wordId)
+    ) {
 
         return null;
 
     }
+
 
     return existing;
 

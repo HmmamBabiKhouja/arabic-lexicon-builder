@@ -63,3 +63,19 @@ export async function findWordByCurrentWord(currentWord) {
     ) ?? null;
 
 }
+
+export async function findWordBySearchKey(
+    searchKey
+) {
+
+    const words =
+        await getWords();
+
+
+    return words.find(word =>
+
+        word.searchKey === searchKey
+
+    ) ?? null;
+
+}
