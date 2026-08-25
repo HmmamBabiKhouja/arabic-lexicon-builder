@@ -4,6 +4,8 @@ import {
     findWordByCurrentWord
 } from "../repositories/WordRepository.js";
 
+import { normalizeArabic } from "../utils/arabicNormalizer.js";
+
 
 export async function loadWord(id) {
 
@@ -19,12 +21,12 @@ export async function saveWord(word) {
 
     }
 
-    word.searchKey = word.currentWord;
+    word.searchKey =
+        normalizeArabic(word.currentWord);
 
     word.updatedAt = new Date();
 
     await updateWord(word);
-
 }
 
 export async function checkDuplicate(wordId, currentWord) {

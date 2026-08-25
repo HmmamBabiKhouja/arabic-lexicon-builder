@@ -1,17 +1,36 @@
-import {
-    searchWordsFromDatabase
-} from "../repositories/searchRepository.js";
+import { loadDictionary } from "../repositories/WordRepository.js";
+import { normalizeArabic } from "../utils/arabicNormalizer.js";
 
 export async function searchWords(query) {
 
-    const normalized = query.trim();
+    const normalizedQuery =
+        normalizeArabic(query);
 
-    if (!normalized) {
+    if (!normalizedQuery) {
 
         return [];
 
     }
 
-    return await searchWordsFromDatabase(normalized);
+    const words =
+        await loadDictionary();
+
+    return words.filter(word => {
+
+        const searchKey =
+            word.searchKey ||
+            normalizeArabic(word.currentWord);
+
+        return searchKey.includes(
+            normalizedQuery
+        );
+
+    });
+
+}
+
+export async function search(query) {
+
+    return await searchWords(query);
 
 }

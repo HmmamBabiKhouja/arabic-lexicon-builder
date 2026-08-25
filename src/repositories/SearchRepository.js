@@ -13,15 +13,18 @@ export async function searchWordsFromDatabase(query, limit = 50) {
             "readonly"
         );
 
-        const store = tx.objectStore(STORE_NAME);
+        const store =
+            tx.objectStore(STORE_NAME);
 
-        const request = store.openCursor();
+        const request =
+            store.openCursor();
 
         const results = [];
 
         request.onsuccess = event => {
 
-            const cursor = event.target.result;
+            const cursor =
+                event.target.result;
 
             if (!cursor) {
 
@@ -31,14 +34,12 @@ export async function searchWordsFromDatabase(query, limit = 50) {
 
             }
 
-            const word = cursor.value;
+            const word =
+                cursor.value;
 
             if (
-
-                word.searchKey.startsWith(query) ||
-
-                word.originalWord.startsWith(query)
-
+                word.searchKey &&
+                word.searchKey.startsWith(query)
             ) {
 
                 results.push(word);

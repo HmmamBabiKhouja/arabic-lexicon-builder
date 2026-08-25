@@ -1,5 +1,7 @@
+import { runMigrations } from "./migrations/migrationManager.js";
+
 const DB_NAME = "arabic-review-db";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const STORES = {
     WORDS: "words",
@@ -25,7 +27,12 @@ export async function openDatabase() {
 
             db = event.target.result;
 
-            // WORDS
+            const transaction = event.target.transaction;
+
+            // =========================
+            // Create stores
+            // =========================
+
             if (!db.objectStoreNames.contains(STORES.WORDS)) {
 
                 const wordStore = db.createObjectStore(
@@ -51,9 +58,16 @@ export async function openDatabase() {
                     }
                 );
 
+                wordStore.createIndex(
+                    "searchKey",
+                    "searchKey",
+                    {
+                        unique: false
+                    }
+                );
+
             }
 
-            // REVIEWS
             if (!db.objectStoreNames.contains(STORES.REVIEWS)) {
 
                 db.createObjectStore(
@@ -65,7 +79,6 @@ export async function openDatabase() {
 
             }
 
-            // SETTINGS
             if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
 
                 db.createObjectStore(
@@ -77,11 +90,63 @@ export async function openDatabase() {
 
             }
 
+            // =========================
+            // Migration: Version 6
+            // =========================
+
+            if (event.oldVersion < 6) {
+
+                console.log(
+                    "Running Migration 5: adding searchKey..."
+                );
+
+                const wordStore =
+                    transaction.objectStore(
+                        STORES.WORDS
+                    );
+
+                const cursorRequest =
+                    wordStore.openCursor();
+
+                cursorRequest.onsuccess = event => {
+
+                    const cursor =
+                        event.target.result;
+
+                    if (!cursor) {
+
+                        console.log(
+                            "Migration 5 complete."
+                        );
+
+                        return;
+
+                    }
+
+                    const word = cursor.value;
+
+                    if (!word.searchKey) {
+
+                        word.searchKey =
+                            word.currentWord;
+
+                        cursor.update(word);
+
+                    }
+
+                    cursor.continue();
+
+                };
+
+            }
+
         };
 
-        request.onsuccess = event => {
+        request.onsuccess = async event => {
 
             db = event.target.result;
+
+            await runMigrations(db);
 
             resolve(db);
 
