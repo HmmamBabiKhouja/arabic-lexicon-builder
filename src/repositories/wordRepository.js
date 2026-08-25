@@ -1,7 +1,14 @@
-import { saveWords } from "../database/db.js";
-import { getWords } from "../database/db.js";
+import {
+    mergeWordRecords,
+    saveWords,
+    getWords,
+    deleteWord as deleteWordFromDatabase,
+    getReview as getReviewFromDatabase,
+    saveReview as saveReviewToDatabase,
+    deleteReview as deleteReviewFromDatabase
+} from "../database/db.js";
+
 import { createBatches } from "../utils/batch.js";
-import { deleteWord as deleteWordFromDatabase } from "../database/db.js";
 
 
 export async function deleteWord(wordId) {
@@ -72,9 +79,7 @@ export async function findWordByCurrentWord(currentWord) {
 
 }
 
-export async function findWordBySearchKey(
-    searchKey
-) {
+export async function findWordBySearchKey(searchKey) {
 
     const words =
         await getWords();
@@ -85,5 +90,37 @@ export async function findWordBySearchKey(
         word.searchKey === searchKey
 
     ) ?? null;
+
+}
+
+export async function getReview(wordId) {
+
+    return await getReviewFromDatabase(wordId);
+
+}
+
+export async function saveReview(review) {
+
+    await saveReviewToDatabase(review);
+
+}
+
+export async function deleteReview(wordId) {
+
+    await deleteReviewFromDatabase(wordId);
+
+}
+
+export async function mergeWords(
+    sourceWord,
+    targetWord,
+    mergedReview = null
+) {
+
+    await mergeWordRecords(
+        sourceWord,
+        targetWord,
+        mergedReview
+    );
 
 }

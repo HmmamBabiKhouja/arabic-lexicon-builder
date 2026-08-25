@@ -2,12 +2,14 @@ import {
     getWord,
     updateWord,
     findWordBySearchKey,
-    deleteWord
+    deleteWord,
+    getReview,
+    saveReview,
+    deleteReview,
+    mergeWords as mergeWordsInDatabase
 } from "../repositories/WordRepository.js";
 
-import {
-    normalizeArabic
-} from "../utils/arabicNormalizer.js";
+import { normalizeArabic } from "../utils/arabicNormalizer.js";
 
 
 export async function loadWord(id) {
@@ -83,6 +85,7 @@ export async function checkDuplicate( wordId,currentWord) {
 
 }
 
+
 export async function mergeWords(sourceWord,targetWord) {
 
     if (!sourceWord || !targetWord) {
@@ -93,10 +96,6 @@ export async function mergeWords(sourceWord,targetWord) {
 
     }
 
-
-    // =====================================
-    // Safety check
-    // =====================================
 
     if (
         String(sourceWord.id) ===
@@ -115,24 +114,27 @@ export async function mergeWords(sourceWord,targetWord) {
     // =====================================
 
     const sourceCategories =
-        Array.isArray(sourceWord.categories)
+        Array.isArray(
+            sourceWord.categories
+        )
             ? sourceWord.categories
             : [];
 
 
     const targetCategories =
-        Array.isArray(targetWord.categories)
+        Array.isArray(
+            targetWord.categories
+        )
             ? targetWord.categories
             : [];
 
 
-    targetWord.categories =
-        [
-            ...new Set([
-                ...targetCategories,
-                ...sourceCategories
-            ])
-        ];
+    targetWord.categories = [
+        ...new Set([
+            ...targetCategories,
+            ...sourceCategories
+        ])
+    ];
 
 
     // =====================================
@@ -140,11 +142,17 @@ export async function mergeWords(sourceWord,targetWord) {
     // =====================================
 
     const sourceNotes =
-        (sourceWord.notes || "").trim();
+        (
+            sourceWord.notes ||
+            ""
+        ).trim();
 
 
     const targetNotes =
-        (targetWord.notes || "").trim();
+        (
+            targetWord.notes ||
+            ""
+        ).trim();
 
 
     if (
@@ -153,17 +161,21 @@ export async function mergeWords(sourceWord,targetWord) {
     ) {
 
         if (
-            !targetNotes.includes(sourceNotes)
+            !targetNotes.includes(
+                sourceNotes
+            )
         ) {
 
             targetWord.notes =
                 targetNotes +
-                "\n\n--- Merged note ---\n\n" +
+                "\n\n--- ملاحظة من السجل المدموج ---\n\n" +
                 sourceNotes;
 
         }
 
-    } else if (sourceNotes) {
+    } else if (
+        sourceNotes
+    ) {
 
         targetWord.notes =
             sourceNotes;
@@ -172,33 +184,79 @@ export async function mergeWords(sourceWord,targetWord) {
 
 
     // =====================================
-    // Keep higher frequency
+    // Keep the higher frequency
     // =====================================
 
     targetWord.frequency =
         Math.max(
-            Number(targetWord.frequency || 0),
-            Number(sourceWord.frequency || 0)
+            Number(
+                targetWord.frequency || 0
+            ),
+            Number(
+                sourceWord.frequency || 0
+            )
         );
 
 
     // =====================================
-    // Save target
+    // Prepare review migration
     // =====================================
 
-    await saveWord(targetWord);
+    const sourceReview =
+        await getReview(
+            sourceWord.id
+        );
+
+
+    const targetReview =
+        await getReview(
+            targetWord.id
+        );
+
+
+    let mergedReview = null;
+
+
+    if (
+        !targetReview &&
+        sourceReview
+    ) {
+
+        mergedReview = {
+            ...sourceReview,
+            wordId: targetWord.id
+        };
+
+    }
 
 
     // =====================================
-    // Delete source
+    // Update metadata
     // =====================================
 
-    await deleteWord(
-        sourceWord.id
+    targetWord.searchKey =
+        normalizeArabic(
+            targetWord.currentWord
+        );
+
+
+    targetWord.updatedAt =
+        new Date();
+
+
+    // =====================================
+    // Atomic database operation
+    // =====================================
+
+    await mergeWordsInDatabase(
+        sourceWord,
+        targetWord,
+        mergedReview
     );
 
 
     return targetWord;
 
 }
+
 

@@ -274,6 +274,39 @@ export async function getReview(wordId) {
 
 }
 
+export async function deleteReview(wordId) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.REVIEWS,
+            "readwrite"
+        );
+
+        const store = tx.objectStore(
+            STORES.REVIEWS
+        );
+
+        store.delete(wordId);
+
+        tx.oncomplete = () => {
+
+            resolve();
+
+        };
+
+        tx.onerror = () => {
+
+            reject(tx.error);
+
+        };
+
+    });
+
+}
+
 export async function saveSetting(key, value) {
 
     const database = await openDatabase();
@@ -365,6 +398,88 @@ export async function deleteWord(wordId) {
         tx.onerror = () => {
 
             reject(tx.error);
+
+        };
+
+    });
+
+}
+
+export async function mergeWordRecords(sourceWord,targetWord,mergedReview = null) {
+
+    const database =
+        await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx =
+            database.transaction(
+                [
+                    STORES.WORDS,
+                    STORES.REVIEWS
+                ],
+                "readwrite"
+            );
+
+        const wordStore =
+            tx.objectStore(
+                STORES.WORDS
+            );
+
+        const reviewStore =
+            tx.objectStore(
+                STORES.REVIEWS
+            );
+
+
+        // Save the merged target word
+        wordStore.put(targetWord);
+
+
+        // If the source review is being
+        // transferred to the target,
+        // save it under the target ID.
+        if (mergedReview) {
+
+            reviewStore.put(mergedReview);
+
+        }
+
+
+        // Delete the old word
+        wordStore.delete(
+            sourceWord.id
+        );
+
+
+        // Delete the old review
+        reviewStore.delete(
+            sourceWord.id
+        );
+
+
+        tx.oncomplete = () => {
+
+            resolve();
+
+        };
+
+
+        tx.onerror = () => {
+
+            reject(tx.error);
+
+        };
+
+
+        tx.onabort = () => {
+
+            reject(
+                tx.error ||
+                new Error(
+                    "Merge transaction aborted."
+                )
+            );
 
         };
 
