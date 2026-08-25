@@ -1,6 +1,14 @@
 import { saveWords } from "../database/db.js";
 import { getWords } from "../database/db.js";
 import { createBatches } from "../utils/batch.js";
+import { deleteWord as deleteWordFromDatabase } from "../database/db.js";
+
+
+export async function deleteWord(wordId) {
+
+    await deleteWordFromDatabase(wordId);
+
+}
 
 const BATCH_SIZE = 1000;
 

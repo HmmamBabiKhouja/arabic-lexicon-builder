@@ -1,12 +1,11 @@
 import {
     loadWord,
     saveWord,
-    checkDuplicate
+    checkDuplicate,
+    mergeWords
 } from "../services/wordService.js";
 
-import {
-    categories
-} from "../config/categories.js";
+import { categories } from "../config/categories.js";
 
 
 export async function renderWordEditor(
@@ -87,7 +86,7 @@ export async function renderWordEditor(
 
 
     // =====================================
-    // Editor UI
+    // Editor
     // =====================================
 
     container.innerHTML = `
@@ -239,15 +238,11 @@ export async function renderWordEditor(
 
 
     // =====================================
-    // Duplicate state
+    // Duplicate
     // =====================================
 
-    let duplicateFound = false;
+    let currentDuplicate = null;
 
-
-    // =====================================
-    // Duplicate checking
-    // =====================================
 
     async function checkCurrentWord() {
 
@@ -255,8 +250,7 @@ export async function renderWordEditor(
             currentWordInput.value.trim();
 
 
-        duplicateFound = false;
-
+        currentDuplicate = null;
 
         warning.innerHTML = "";
 
@@ -282,7 +276,8 @@ export async function renderWordEditor(
         }
 
 
-        duplicateFound = true;
+        currentDuplicate =
+            duplicate;
 
 
         warning.innerHTML = `
@@ -290,14 +285,15 @@ export async function renderWordEditor(
             <div
                 class="warning"
                 style="
-                    padding: 12px;
+                    padding: 15px;
                     border: 1px solid #d33;
-                    border-radius: 6px;
+                    border-radius: 8px;
                     margin-top: 10px;
                 "
             >
 
                 ⚠️
+
                 <strong>
                     هذه الكلمة موجودة بالفعل
                 </strong>
@@ -306,17 +302,19 @@ export async function renderWordEditor(
                 <br><br>
 
 
-                الكلمة الموجودة:
-
                 <strong>
-                    ${duplicate.currentWord}
+                    الكلمة الموجودة:
                 </strong>
+
+                ${duplicate.currentWord}
 
 
                 <br>
 
 
-                الكلمة الأصلية:
+                <strong>
+                    الكلمة الأصلية:
+                </strong>
 
                 ${duplicate.originalWord}
 
@@ -324,7 +322,9 @@ export async function renderWordEditor(
                 <br>
 
 
-                المعرّف:
+                <strong>
+                    المعرّف:
+                </strong>
 
                 ${duplicate.id}
 
@@ -332,12 +332,105 @@ export async function renderWordEditor(
                 <br><br>
 
 
-                لا يمكن حفظ الكلمة بهذه الصيغة
-                لأنها ستصبح مكررة.
+                <button
+                    id="mergeButton"
+                    type="button"
+                >
 
-            </div>
+                    🔀 دمج مع الكلمة الموجودة
 
-        `;
+                </button>
+
+            `;
+
+
+        // =================================
+        // Merge button
+        // =================================
+
+        const mergeButton =
+            document.getElementById(
+                "mergeButton"
+            );
+
+
+        mergeButton.addEventListener(
+            "click",
+            async () => {
+
+                if (!currentDuplicate) {
+
+                    return;
+
+                }
+
+
+                const confirmed =
+                    confirm(
+
+                        `هل تريد دمج الكلمة الحالية مع:\n\n` +
+
+                        `${currentDuplicate.currentWord}\n\n` +
+
+                        `سيتم الاحتفاظ بالكلمة الموجودة ` +
+
+                        `وحذف الكلمة الحالية بعد نجاح الدمج.`
+
+                    );
+
+
+                if (!confirmed) {
+
+                    return;
+
+                }
+
+
+                mergeButton.disabled = true;
+
+                mergeButton.textContent =
+                    "جارٍ الدمج...";
+
+
+                try {
+
+                    await mergeWords(
+                        word,
+                        currentDuplicate
+                    );
+
+
+                    alert(
+                        "تم دمج الكلمتين بنجاح."
+                    );
+
+
+                    window.location.hash =
+                        "#/search";
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Merge failed:",
+                        error
+                    );
+
+
+                    mergeButton.disabled = false;
+
+                    mergeButton.textContent =
+                        "🔀 دمج مع الكلمة الموجودة";
+
+
+                    alert(
+                        "حدث خطأ أثناء دمج الكلمتين."
+                    );
+
+                }
+
+            }
+        );
 
     }
 
@@ -375,7 +468,10 @@ export async function renderWordEditor(
             }
 
 
-            // Check one final time
+            // =================================
+            // Final duplicate check
+            // =================================
+
             const duplicate =
                 await checkDuplicate(
                     word.id,
@@ -385,14 +481,16 @@ export async function renderWordEditor(
 
             if (duplicate) {
 
+                // Show duplicate warning again
+                currentDuplicate =
+                    duplicate;
+
+
+                await checkCurrentWord();
+
+
                 alert(
-
-                    `هذه الكلمة موجودة بالفعل:\n\n` +
-
-                    `${duplicate.currentWord}\n\n` +
-
-                    `المعرّف: ${duplicate.id}`
-
+                    "هذه الكلمة موجودة بالفعل. يمكنك دمجها مع الكلمة الموجودة."
                 );
 
 
@@ -432,14 +530,32 @@ export async function renderWordEditor(
                 });
 
 
-            await saveWord(word);
+            try {
+
+                await saveWord(word);
 
 
-            // =================================
-            // Return to editor/review
-            // =================================
+                alert(
+                    "تم حفظ الكلمة بنجاح."
+                );
 
-            history.back();
+
+                history.back();
+
+
+            } catch (error) {
+
+                console.error(
+                    "Save failed:",
+                    error
+                );
+
+
+                alert(
+                    "حدث خطأ أثناء حفظ الكلمة."
+                );
+
+            }
 
         }
     );

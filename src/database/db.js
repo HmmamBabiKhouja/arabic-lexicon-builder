@@ -331,6 +331,47 @@ export async function getSetting(key) {
 
 }
 
+export async function deleteWord(wordId) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise((resolve, reject) => {
+
+        const tx =
+            database.transaction(
+                STORES.WORDS,
+                "readwrite"
+            );
+
+
+        const store =
+            tx.objectStore(
+                STORES.WORDS
+            );
+
+
+        store.delete(wordId);
+
+
+        tx.oncomplete = () => {
+
+            resolve();
+
+        };
+
+
+        tx.onerror = () => {
+
+            reject(tx.error);
+
+        };
+
+    });
+
+}
+
 export async function deleteDatabase() {
 
     if (db) {
