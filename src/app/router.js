@@ -3,6 +3,7 @@ import { renderReviewScreen } from "../screens/review.js";
 import { renderImportScreen } from "../screens/import.js";
 import { renderSearchScreen } from "../screens/search.js";
 import { renderWordEditor } from "../screens/wordEditor.js";
+import { renderDuplicateScreen } from "../screens/duplicates.js";
 
 export function initRouter() {
 
@@ -55,6 +56,14 @@ async function render() {
             console.log("Rendering search screen");
 
             await renderSearchScreen(app);
+
+            break;
+
+        case "#/duplicates":
+
+            console.log("Rendering duplicates screen");
+
+            await renderDuplicateScreen(app);
 
             break;
 

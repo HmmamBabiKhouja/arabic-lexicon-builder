@@ -223,6 +223,12 @@ export async function renderHomeScreen(container) {
 
                 </button>
 
+                <button id="duplicatesButton">
+
+                    🔁 إدارة التكرارات
+
+                </button>
+
 
                 <button id="importButton">
 
@@ -268,6 +274,21 @@ export async function renderHomeScreen(container) {
                 }
             );
 
+        // =====================================
+        // زر التكرارات
+        // =====================================
+
+        document
+            .getElementById("duplicatesButton")
+            .addEventListener(
+                "click",
+                () => {
+
+                    window.location.hash =
+                        "#/duplicates";
+
+                }
+            );
 
         // =====================================
         // زر الاستيراد

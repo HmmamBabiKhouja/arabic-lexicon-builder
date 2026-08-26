@@ -11,6 +11,7 @@ const STORES = {
 
 let db = null;
 
+
 /**
  * Open IndexedDB
  */
@@ -23,24 +24,33 @@ export async function openDatabase() {
             DB_VERSION
         );
 
+
         request.onupgradeneeded = event => {
 
             db = event.target.result;
 
-            const transaction = event.target.transaction;
+            const transaction =
+                event.target.transaction;
 
-            // =========================
-            // Create stores
-            // =========================
 
-            if (!db.objectStoreNames.contains(STORES.WORDS)) {
+            // =====================================
+            // WORDS STORE
+            // =====================================
 
-                const wordStore = db.createObjectStore(
-                    STORES.WORDS,
-                    {
-                        keyPath: "id"
-                    }
-                );
+            if (
+                !db.objectStoreNames.contains(
+                    STORES.WORDS
+                )
+            ) {
+
+                const wordStore =
+                    db.createObjectStore(
+                        STORES.WORDS,
+                        {
+                            keyPath: "id"
+                        }
+                    );
+
 
                 wordStore.createIndex(
                     "currentWord",
@@ -50,6 +60,7 @@ export async function openDatabase() {
                     }
                 );
 
+
                 wordStore.createIndex(
                     "originalWord",
                     "originalWord",
@@ -57,6 +68,7 @@ export async function openDatabase() {
                         unique: false
                     }
                 );
+
 
                 wordStore.createIndex(
                     "searchKey",
@@ -68,7 +80,16 @@ export async function openDatabase() {
 
             }
 
-            if (!db.objectStoreNames.contains(STORES.REVIEWS)) {
+
+            // =====================================
+            // REVIEWS STORE
+            // =====================================
+
+            if (
+                !db.objectStoreNames.contains(
+                    STORES.REVIEWS
+                )
+            ) {
 
                 db.createObjectStore(
                     STORES.REVIEWS,
@@ -79,7 +100,16 @@ export async function openDatabase() {
 
             }
 
-            if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
+
+            // =====================================
+            // SETTINGS STORE
+            // =====================================
+
+            if (
+                !db.objectStoreNames.contains(
+                    STORES.SETTINGS
+                )
+            ) {
 
                 db.createObjectStore(
                     STORES.SETTINGS,
@@ -90,68 +120,87 @@ export async function openDatabase() {
 
             }
 
-            // =========================
-            // Migration: Version 6
-            // =========================
+
+            // =====================================
+            // MIGRATION: VERSION 6
+            // =====================================
 
             if (event.oldVersion < 6) {
 
                 console.log(
-                    "Running Migration 5: adding searchKey..."
+                    "Running Migration 6: adding searchKey..."
                 );
+
 
                 const wordStore =
                     transaction.objectStore(
                         STORES.WORDS
                     );
 
+
                 const cursorRequest =
                     wordStore.openCursor();
 
-                cursorRequest.onsuccess = event => {
 
-                    const cursor =
-                        event.target.result;
+                cursorRequest.onsuccess =
+                    event => {
 
-                    if (!cursor) {
+                        const cursor =
+                            event.target.result;
 
-                        console.log(
-                            "Migration 5 complete."
-                        );
 
-                        return;
+                        if (!cursor) {
 
-                    }
+                            console.log(
+                                "Migration 6 complete."
+                            );
 
-                    const word = cursor.value;
+                            return;
 
-                    if (!word.searchKey) {
+                        }
 
-                        word.searchKey =
-                            word.currentWord;
 
-                        cursor.update(word);
+                        const word =
+                            cursor.value;
 
-                    }
 
-                    cursor.continue();
+                        if (
+                            !word.searchKey &&
+                            word.currentWord
+                        ) {
 
-                };
+                            word.searchKey =
+                                word.currentWord;
+
+
+                            cursor.update(word);
+
+                        }
+
+
+                        cursor.continue();
+
+                    };
 
             }
 
         };
 
+
         request.onsuccess = async event => {
 
-            db = event.target.result;
+            db =
+                event.target.result;
+
 
             await runMigrations(db);
+
 
             resolve(db);
 
         };
 
+
         request.onerror = () => {
 
             reject(request.error);
@@ -162,355 +211,392 @@ export async function openDatabase() {
 
 }
 
+
+/**
+ * Save multiple words
+ */
 export async function saveWords(words) {
-
-    const database = await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx = database.transaction(
-            STORES.WORDS,
-            "readwrite"
-        );
-
-        const store = tx.objectStore(STORES.WORDS);
-
-        words.forEach(word => {
-
-            store.put(word);
-
-        });
-
-        tx.oncomplete = () => resolve();
-
-        tx.onerror = () => reject(tx.error);
-
-    });
-
-}
-
-export async function getWords() {
-
-    const database = await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx = database.transaction(
-            STORES.WORDS,
-            "readonly"
-        );
-
-        const store = tx.objectStore(STORES.WORDS);
-
-        const request = store.getAll();
-
-        request.onsuccess = () => {
-
-            resolve(request.result);
-
-        };
-
-        request.onerror = () => {
-
-            reject(request.error);
-
-        };
-
-    });
-
-}
-
-export async function saveReview(review) {
-
-    const database = await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx = database.transaction(
-            STORES.REVIEWS,
-            "readwrite"
-        );
-
-        const store = tx.objectStore(STORES.REVIEWS);
-
-        store.put(review);
-
-        tx.oncomplete = () => resolve();
-
-        tx.onerror = () => reject(tx.error);
-
-    });
-
-}
-
-export async function getReview(wordId) {
-
-    const database = await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx = database.transaction(
-            STORES.REVIEWS,
-            "readonly"
-        );
-
-        const store = tx.objectStore(STORES.REVIEWS);
-
-        const request = store.get(wordId);
-
-        request.onsuccess = () => {
-
-            resolve(request.result);
-
-        };
-
-        request.onerror = () => {
-
-            reject(request.error);
-
-        };
-
-    });
-
-}
-
-export async function deleteReview(wordId) {
-
-    const database = await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx = database.transaction(
-            STORES.REVIEWS,
-            "readwrite"
-        );
-
-        const store = tx.objectStore(
-            STORES.REVIEWS
-        );
-
-        store.delete(wordId);
-
-        tx.oncomplete = () => {
-
-            resolve();
-
-        };
-
-        tx.onerror = () => {
-
-            reject(tx.error);
-
-        };
-
-    });
-
-}
-
-export async function saveSetting(key, value) {
-
-    const database = await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx = database.transaction(
-            STORES.SETTINGS,
-            "readwrite"
-        );
-
-        const store = tx.objectStore(STORES.SETTINGS);
-
-        store.put({
-            key,
-            value
-        });
-
-        tx.oncomplete = () => resolve();
-
-        tx.onerror = () => reject(tx.error);
-
-    });
-
-}
-
-export async function getSetting(key) {
-
-    const database = await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx = database.transaction(
-            STORES.SETTINGS,
-            "readonly"
-        );
-
-        const store = tx.objectStore(STORES.SETTINGS);
-
-        const request = store.get(key);
-
-        request.onsuccess = () => {
-
-            resolve(request.result?.value);
-
-        };
-
-        request.onerror = () => {
-
-            reject(request.error);
-
-        };
-
-    });
-
-}
-
-export async function deleteWord(wordId) {
 
     const database =
         await openDatabase();
 
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.WORDS,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.WORDS
+                );
+
+
+            words.forEach(word => {
+
+                store.put(word);
+
+            });
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(tx.error);
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get all words
+ */
+export async function getWords() {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.WORDS,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.WORDS
+                );
+
+
+            const request =
+                store.getAll();
+
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result
+                );
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Save review
+ */
+export async function saveReview(review) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.REVIEWS,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.REVIEWS
+                );
+
+
+            store.put(review);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(tx.error);
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get review
+ */
+export async function getReview(wordId) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.REVIEWS,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.REVIEWS
+                );
+
+
+            const request =
+                store.get(wordId);
+
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result
+                );
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Delete review
+ */
+export async function deleteReview(wordId) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.REVIEWS,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.REVIEWS
+                );
+
+
+            store.delete(wordId);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(tx.error);
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Save setting
+ */
+export async function saveSetting(
+    key,
+    value
+) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.SETTINGS,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.SETTINGS
+                );
+
+
+            store.put({
+                key,
+                value
+            });
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(tx.error);
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get setting
+ */
+export async function getSetting(key) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.SETTINGS,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.SETTINGS
+                );
+
+
+            const request =
+                store.get(key);
+
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result?.value
+                );
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+/**
+ * Find one word by its searchKey using the IndexedDB index.
+ */
+export async function getWordBySearchKey(searchKey) {
+
+    const database =
+        await openDatabase();
 
     return new Promise((resolve, reject) => {
 
         const tx =
             database.transaction(
                 STORES.WORDS,
-                "readwrite"
+                "readonly"
             );
-
 
         const store =
             tx.objectStore(
                 STORES.WORDS
             );
 
+        const index =
+            store.index("searchKey");
 
-        store.delete(wordId);
-
-
-        tx.oncomplete = () => {
-
-            resolve();
-
-        };
-
-
-        tx.onerror = () => {
-
-            reject(tx.error);
-
-        };
-
-    });
-
-}
-
-export async function mergeWordRecords(sourceWord,targetWord,mergedReview = null) {
-
-    const database =
-        await openDatabase();
-
-    return new Promise((resolve, reject) => {
-
-        const tx =
-            database.transaction(
-                [
-                    STORES.WORDS,
-                    STORES.REVIEWS
-                ],
-                "readwrite"
-            );
-
-        const wordStore =
-            tx.objectStore(
-                STORES.WORDS
-            );
-
-        const reviewStore =
-            tx.objectStore(
-                STORES.REVIEWS
-            );
-
-
-        // Save the merged target word
-        wordStore.put(targetWord);
-
-
-        // If the source review is being
-        // transferred to the target,
-        // save it under the target ID.
-        if (mergedReview) {
-
-            reviewStore.put(mergedReview);
-
-        }
-
-
-        // Delete the old word
-        wordStore.delete(
-            sourceWord.id
-        );
-
-
-        // Delete the old review
-        reviewStore.delete(
-            sourceWord.id
-        );
-
-
-        tx.oncomplete = () => {
-
-            resolve();
-
-        };
-
-
-        tx.onerror = () => {
-
-            reject(tx.error);
-
-        };
-
-
-        tx.onabort = () => {
-
-            reject(
-                tx.error ||
-                new Error(
-                    "Merge transaction aborted."
-                )
-            );
-
-        };
-
-    });
-
-}
-
-export async function deleteDatabase() {
-
-    if (db) {
-
-        db.close();
-        db = null;
-
-    }
-
-    return new Promise((resolve, reject) => {
-
-        const request = indexedDB.deleteDatabase(DB_NAME);
-
-        request.onblocked = () => {
-
-            console.log("Database deletion is BLOCKED.");
-
-        };
+        const request =
+            index.get(searchKey);
 
         request.onsuccess = () => {
 
-            console.log("Database deleted.");
-
-            resolve();
+            resolve(
+                request.result ?? null
+            );
 
         };
 
@@ -521,5 +607,218 @@ export async function deleteDatabase() {
         };
 
     });
+
+}
+
+/**
+ * Get all words sharing the same searchKey.
+ */
+export async function getWordsBySearchKey(searchKey) {
+
+    return await getWordsBySearchKey(searchKey);
+
+}
+
+/**
+ * Delete one word
+ */
+export async function deleteWord(wordId) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.WORDS,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.WORDS
+                );
+
+
+            store.delete(wordId);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(tx.error);
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Atomically merge two word records
+ *
+ * Saves the target word,
+ * optionally transfers the review,
+ * deletes the source word,
+ * and deletes the source review
+ * in one transaction.
+ */
+export async function mergeWordRecords(
+    sourceWord,
+    targetWord,
+    mergedReview = null
+) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    [
+                        STORES.WORDS,
+                        STORES.REVIEWS
+                    ],
+                    "readwrite"
+                );
+
+
+            const wordStore =
+                tx.objectStore(
+                    STORES.WORDS
+                );
+
+
+            const reviewStore =
+                tx.objectStore(
+                    STORES.REVIEWS
+                );
+
+
+            // Save merged target
+            wordStore.put(targetWord);
+
+
+            // Save transferred review
+            if (mergedReview) {
+
+                reviewStore.put(
+                    mergedReview
+                );
+
+            }
+
+
+            // Delete source word
+            wordStore.delete(
+                sourceWord.id
+            );
+
+
+            // Delete source review
+            reviewStore.delete(
+                sourceWord.id
+            );
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(tx.error);
+
+            };
+
+
+            tx.onabort = () => {
+
+                reject(
+                    tx.error ||
+                    new Error(
+                        "Merge transaction aborted."
+                    )
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Delete the entire database
+ */
+export async function deleteDatabase() {
+
+    if (db) {
+
+        db.close();
+
+        db = null;
+
+    }
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const request =
+                indexedDB.deleteDatabase(
+                    DB_NAME
+                );
+
+
+            request.onblocked = () => {
+
+                console.warn(
+                    "Database deletion is BLOCKED."
+                );
+
+            };
+
+
+            request.onsuccess = () => {
+
+                console.log(
+                    "Database deleted."
+                );
+
+                resolve();
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
 
 }
