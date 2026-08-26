@@ -4,6 +4,7 @@ import {
     getWords,
     getWordBySearchKey,
     getWordsBySearchKey,
+    getDuplicateGroups,
     deleteWord as deleteWordFromDatabase,
     getReview as getReviewFromDatabase,
     saveReview as saveReviewToDatabase,
@@ -178,4 +179,15 @@ export async function mergeWords(sourceWord,targetWord,mergedReview = null) {
     await mergeWordRecords(sourceWord,targetWord,mergedReview);
 
 }
+
+/**
+ * Find all duplicate groups using
+ * the IndexedDB searchKey index.
+ */
+export async function findDuplicateGroups() {
+
+    return await getDuplicateGroups();
+
+}
+
 

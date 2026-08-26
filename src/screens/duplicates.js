@@ -1,5 +1,5 @@
 
-import { findDuplicateGroups } from "../services/duplicateService.js";
+import { getDuplicateGroups } from "../services/duplicateService.js";
 
 
 export async function renderDuplicateScreen(container) {
@@ -32,7 +32,7 @@ export async function renderDuplicateScreen(container) {
     try {
 
         const duplicateGroups =
-            await findDuplicateGroups();
+            await getDuplicateGroups();
 
 
         if (!duplicateGroups.length) {

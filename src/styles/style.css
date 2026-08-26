@@ -1,17 +1,21 @@
 /* ==========================================================
    Mu'jam - Arabic Lexicon Builder
    Version: 0.1
-   Mobile First
+   Responsive + Mobile First + RTL
 ========================================================== */
+
 @import url("./variables.css");
 @import url("./layout.css");
 @import url("./buttons.css");
 @import url("./cards.css");
 @import url("./forms.css");
 
-:root {
 
-    /* Colors */
+/* ==========================================================
+   ROOT VARIABLES
+========================================================== */
+
+:root {
 
     --primary: #2563eb;
     --primary-dark: #1d4ed8;
@@ -30,242 +34,801 @@
     --radius: 18px;
 
     --shadow:
-        0 4px 18px rgba(0,0,0,.08);
+        0 4px 18px rgba(0, 0, 0, .08);
 
     --transition: .25s ease;
 
     --font:
         "Segoe UI",
         Tahoma,
+        Arial,
         sans-serif;
 }
 
-/* Dark mode variables (used later) */
 
-[data-theme="dark"]{
+/* ==========================================================
+   DARK MODE
+========================================================== */
 
-    --background:#111827;
-    --surface:#1f2937;
+[data-theme="dark"] {
 
-    --text:#f9fafb;
-    --text-light:#9ca3af;
+    --background: #111827;
+    --surface: #1f2937;
 
-    --border:#374151;
-}
+    --text: #f9fafb;
+    --text-light: #9ca3af;
 
-/* Reset */
-
-*{
-
-    margin:0;
-    padding:0;
-
-    box-sizing:border-box;
+    --border: #374151;
 
 }
 
-html{
 
-    font-size:16px;
+/* ==========================================================
+   GLOBAL RESET
+========================================================== */
 
-}
+* {
 
-body{
+    margin: 0;
+    padding: 0;
 
-    font-family:var(--font);
-
-    background:var(--background);
-
-    color:var(--text);
-
-    min-height:100vh;
-
-    direction:rtl;
-
-    display:flex;
-
-    flex-direction:column;
+    box-sizing: border-box;
 
 }
 
-/* Header */
 
-.top-bar{
+html {
 
-    background:var(--primary);
+    font-size: 16px;
 
-    color:white;
-
-    padding:18px;
-
-    text-align:center;
-
-    box-shadow:var(--shadow);
+    scroll-behavior: smooth;
 
 }
 
-.top-bar h1{
 
-    font-size:1.5rem;
+body {
 
-    font-weight:700;
+    font-family: var(--font);
 
-}
+    background: var(--background);
 
-/* Main */
+    color: var(--text);
 
-main{
+    min-height: 100vh;
 
-    flex:1;
+    direction: rtl;
 
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-    padding:20px;
+    overflow-x: hidden;
 
 }
 
-/* Card */
 
-.welcome-card{
+/* ==========================================================
+   APPLICATION ROOT
+========================================================== */
 
-    width:100%;
+#app {
 
-    max-width:420px;
+    width: 100%;
 
-    background:var(--surface);
-
-    border-radius:var(--radius);
-
-    padding:28px;
-
-    box-shadow:var(--shadow);
-
-    text-align:center;
+    min-height: 100vh;
 
 }
 
-.welcome-card h2{
 
-    margin-bottom:14px;
+/* ==========================================================
+   HEADER
+========================================================== */
 
-}
+.top-bar {
 
-.welcome-card p{
+    background: var(--primary);
 
-    color:var(--text-light);
+    color: white;
 
-    margin-bottom:28px;
+    padding:
+        14px
+        18px;
 
-}
+    text-align: center;
 
-/* Button */
-
-button{
-
-    width:100%;
-
-    border:none;
-
-    border-radius:14px;
-
-    background:var(--primary);
-
-    color:white;
-
-    font-size:1rem;
-
-    font-weight:600;
-
-    padding:16px;
-
-    cursor:pointer;
-
-    transition:var(--transition);
+    box-shadow: var(--shadow);
 
 }
 
-button:hover{
 
-    background:var(--primary-dark);
+.top-bar h1 {
 
-}
+    font-size: 1.4rem;
 
-button:active{
-
-    transform:scale(.98);
+    font-weight: 700;
 
 }
 
-/* Footer */
 
-footer{
+/* ==========================================================
+   MAIN CONTENT
+========================================================== */
 
-    text-align:center;
+main {
 
-    padding:18px;
+    width: 100%;
 
-    color:var(--text-light);
+    min-height: calc(100vh - 130px);
 
-    font-size:.9rem;
+    display: flex;
+
+    justify-content: center;
+
+    align-items: flex-start;
+
+    padding:
+        16px;
 
 }
 
-/* Larger screens */
 
-@media(min-width:768px){
+/* ==========================================================
+   CARD
+========================================================== */
 
-    .welcome-card{
+.welcome-card {
 
-        max-width:500px;
+    width: 100%;
+
+    max-width: 520px;
+
+    background: var(--surface);
+
+    border-radius: var(--radius);
+
+    padding:
+        22px 18px;
+
+    box-shadow: var(--shadow);
+
+    text-align: center;
+
+}
+
+
+.welcome-card h1,
+.welcome-card h2,
+.welcome-card h3 {
+
+    color: var(--text);
+
+}
+
+
+.welcome-card h1 {
+
+    font-size: 1.8rem;
+
+    margin-bottom: 10px;
+
+}
+
+
+.welcome-card h2 {
+
+    font-size: 1.4rem;
+
+    margin-bottom: 14px;
+
+}
+
+
+.welcome-card h3 {
+
+    font-size: 1.1rem;
+
+    margin-bottom: 12px;
+
+}
+
+
+.welcome-card p {
+
+    color: var(--text-light);
+
+    line-height: 1.7;
+
+    margin-bottom: 18px;
+
+}
+
+
+/* ==========================================================
+   BUTTONS
+========================================================== */
+
+button {
+
+    width: 100%;
+
+    min-height: 48px;
+
+    border: none;
+
+    border-radius: 14px;
+
+    background: var(--primary);
+
+    color: white;
+
+    font-family: inherit;
+
+    font-size: 1rem;
+
+    font-weight: 600;
+
+    padding:
+        12px 16px;
+
+    cursor: pointer;
+
+    transition:
+        background var(--transition),
+        transform .1s ease,
+        opacity .2s ease;
+
+    touch-action: manipulation;
+
+}
+
+
+button:hover {
+
+    background: var(--primary-dark);
+
+}
+
+
+button:active {
+
+    transform: scale(.98);
+
+}
+
+
+button:disabled {
+
+    opacity: .6;
+
+    cursor: not-allowed;
+
+}
+
+
+/* ==========================================================
+   BUTTON GROUP
+========================================================== */
+
+.button-group {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 12px;
+
+    margin-top: 24px;
+
+}
+
+
+/* ==========================================================
+   INPUTS
+========================================================== */
+
+input,
+textarea,
+select {
+
+    width: 100%;
+
+    min-height: 48px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 12px;
+
+    background: var(--surface);
+
+    color: var(--text);
+
+    font-family: inherit;
+
+    font-size: 1rem;
+
+    padding:
+        12px 14px;
+
+    outline: none;
+
+}
+
+
+textarea {
+
+    min-height: 120px;
+
+    resize: vertical;
+
+}
+
+
+input:focus,
+textarea:focus,
+select:focus {
+
+    border-color: var(--primary);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(37, 99, 235, .12);
+
+}
+
+
+/* ==========================================================
+   SEARCH
+========================================================== */
+
+#searchInput {
+
+    text-align: right;
+
+    margin-bottom: 12px;
+
+}
+
+
+/* ==========================================================
+   WORD
+========================================================== */
+
+.word {
+
+    font-size: 2.4rem;
+
+    line-height: 1.4;
+
+    margin:
+        22px 0;
+
+    color: var(--primary);
+
+    word-break: break-word;
+
+}
+
+
+/* ==========================================================
+   CATEGORIES
+========================================================== */
+
+.categories {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 10px;
+
+    margin:
+        20px 0;
+
+    text-align: right;
+
+}
+
+
+.categories label {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    width: 100%;
+
+    min-height: 44px;
+
+    padding:
+        8px 10px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 10px;
+
+    cursor: pointer;
+
+}
+
+
+.categories input {
+
+    width: 20px;
+
+    height: 20px;
+
+    min-height: unset;
+
+    padding: 0;
+
+    flex: 0 0 auto;
+
+}
+
+
+/* ==========================================================
+   PROGRESS
+========================================================== */
+
+.progress-container {
+
+    width: 100%;
+
+    height: 12px;
+
+    background:
+        var(--border);
+
+    border-radius: 999px;
+
+    overflow: hidden;
+
+}
+
+
+.progress-bar {
+
+    height: 100%;
+
+    background:
+        var(--primary);
+
+    border-radius: inherit;
+
+    transition:
+        width .4s ease;
+
+}
+
+
+/* ==========================================================
+   STATISTICS
+========================================================== */
+
+.statistics {
+
+    width: 100%;
+
+    margin:
+        20px 0;
+
+    text-align: right;
+
+}
+
+
+.stat-item {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 12px;
+
+    padding:
+        12px 0;
+
+    border-bottom:
+        1px solid var(--border);
+
+}
+
+
+.stat-item:last-child {
+
+    border-bottom: none;
+
+}
+
+
+.stat-item strong {
+
+    color: var(--text);
+
+}
+
+
+.stat-item span {
+
+    color: var(--primary);
+
+    font-weight: 700;
+
+}
+
+
+/* ==========================================================
+   SEARCH / DUPLICATE RESULT CARDS
+========================================================== */
+
+.result-card,
+.duplicate-group,
+.duplicate-word {
+
+    width: 100%;
+
+    text-align: right;
+
+}
+
+
+.result-card {
+
+    background: var(--surface);
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 14px;
+
+    padding: 14px;
+
+    margin-bottom: 12px;
+
+}
+
+
+.result-card strong {
+
+    display: block;
+
+    font-size: 1.25rem;
+
+    color: var(--primary);
+
+    margin-bottom: 6px;
+
+}
+
+
+/* ==========================================================
+   WARNING / ERROR / SUCCESS
+========================================================== */
+
+.warning,
+.error-message,
+.success-message {
+
+    width: 100%;
+
+    padding: 14px;
+
+    border-radius: 12px;
+
+    margin:
+        12px 0;
+
+    line-height: 1.7;
+
+}
+
+
+.warning {
+
+    border:
+        1px solid var(--danger);
+
+    background:
+        rgba(220, 38, 38, .08);
+
+}
+
+
+.error-message {
+
+    border:
+        1px solid var(--danger);
+
+    background:
+        rgba(220, 38, 38, .08);
+
+}
+
+
+.success-message {
+
+    border:
+        1px solid var(--success);
+
+    background:
+        rgba(22, 163, 74, .08);
+
+}
+
+
+/* ==========================================================
+   SUBTITLE
+========================================================== */
+
+.subtitle {
+
+    margin-top: 10px;
+
+    margin-bottom: 22px;
+
+}
+
+
+/* ==========================================================
+   FOOTER
+========================================================== */
+
+footer {
+
+    width: 100%;
+
+    text-align: center;
+
+    padding:
+        16px;
+
+    color:
+        var(--text-light);
+
+    font-size: .9rem;
+
+}
+
+
+/* ==========================================================
+   TABLETS
+========================================================== */
+
+@media (min-width: 600px) {
+
+    main {
+
+        padding: 24px;
+
+    }
+
+
+    .welcome-card {
+
+        padding: 28px;
+
+    }
+
+
+    .button-group {
+
+        gap: 14px;
 
     }
 
 }
 
-.button-group{
 
-    display:flex;
+/* ==========================================================
+   DESKTOP
+========================================================== */
 
-    flex-direction:column;
+@media (min-width: 768px) {
 
-    gap:14px;
+    main {
 
-    margin-top:30px;
+        align-items: flex-start;
+
+        padding:
+            32px 24px;
+
+    }
+
+
+    .welcome-card {
+
+        max-width: 620px;
+
+        padding: 32px;
+
+    }
+
+
+    .button-group {
+
+        flex-direction: row;
+
+        align-items: center;
+
+    }
+
+
+    .button-group button {
+
+        flex: 1;
+
+    }
 
 }
 
-.subtitle{
 
-    margin-top:12px;
+/* ==========================================================
+   LARGE DESKTOP
+========================================================== */
 
-    margin-bottom:30px;
+@media (min-width: 1100px) {
+
+    .welcome-card {
+
+        max-width: 700px;
+
+    }
+
+
+    .word {
+
+        font-size: 3rem;
+
+    }
 
 }
 
-.categories{
 
-    display:flex;
+/* ==========================================================
+   SMALL PHONES
+========================================================== */
 
-    flex-direction:column;
+@media (max-width: 380px) {
 
-    gap:12px;
+    html {
 
-    margin:25px 0;
+        font-size: 15px;
 
-    text-align:right;
+    }
 
-}
 
-.word{
+    main {
 
-    font-size:2.3rem;
+        padding:
+            10px;
 
-    margin:25px 0;
+    }
 
-    color:var(--primary);
+
+    .welcome-card {
+
+        padding:
+            18px 14px;
+
+        border-radius:
+            14px;
+
+    }
+
+
+    .word {
+
+        font-size: 2rem;
+
+    }
+
+
+    button {
+
+        min-height: 50px;
+
+    }
 
 }

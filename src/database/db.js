@@ -619,6 +619,163 @@ export async function getWordsBySearchKey(searchKey) {
 
 }
 
+
+/**
+ * Find duplicate groups using the searchKey index.
+ *
+ * Returns groups where two or more words
+ * share the same searchKey.
+ */
+
+export async function getDuplicateGroups() {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.WORDS,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.WORDS
+                );
+
+
+            const index =
+                store.index(
+                    "searchKey"
+                );
+
+
+            const request =
+                index.openCursor();
+
+
+            const duplicates = [];
+
+            let currentKey = null;
+            let currentGroup = [];
+
+
+            const finishGroup = () => {
+
+                if (
+                    currentGroup.length > 1
+                ) {
+
+                    duplicates.push({
+
+                        searchKey: currentKey,
+
+                        words: currentGroup
+
+                    });
+
+                }
+
+            };
+
+
+            request.onsuccess =
+                event => {
+
+                    const cursor =
+                        event.target.result;
+
+
+                    if (!cursor) {
+
+                        finishGroup();
+
+                        resolve(
+                            duplicates
+                        );
+
+                        return;
+
+                    }
+
+
+                    const word =
+                        cursor.value;
+
+
+                    const key =
+                        cursor.key;
+
+
+                    /*
+                     * First record
+                     */
+                    if (
+                        currentKey === null
+                    ) {
+
+                        currentKey =
+                            key;
+
+                        currentGroup = [
+                            word
+                        ];
+
+                    }
+
+                    /*
+                     * Same searchKey
+                     */
+                    else if (
+                        key === currentKey
+                    ) {
+
+                        currentGroup.push(
+                            word
+                        );
+
+                    }
+
+                    /*
+                     * New searchKey
+                     */
+                    else {
+
+                        finishGroup();
+
+                        currentKey =
+                            key;
+
+                        currentGroup = [
+                            word
+                        ];
+
+                    }
+
+
+                    cursor.continue();
+
+                };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
 /**
  * Delete one word
  */
