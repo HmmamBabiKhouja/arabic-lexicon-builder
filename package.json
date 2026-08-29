@@ -1,0 +1,32 @@
+{
+  "name": "arabic-lexicon-builder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "sync": "node scripts/sync-web.js",
+    "android": "npm run sync && npx cap sync android"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HmmamBabiKhouja/arabic-lexicon-builder.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/HmmamBabiKhouja/arabic-lexicon-builder/issues"
+  },
+  "homepage": "https://github.com/HmmamBabiKhouja/arabic-lexicon-builder#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
+  }
+}

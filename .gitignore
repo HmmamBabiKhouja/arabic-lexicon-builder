@@ -1,0 +1,5 @@
+node_modules/
+.gradle/
+.idea/
+.DS_Store
+*.log

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Mu\'jam</string>
+    <string name="title_activity_main">Mu\'jam</string>
+    <string name="package_name">com.elegant.mujam</string>
+    <string name="custom_url_scheme">com.elegant.mujam</string>
+</resources>
