@@ -9,7 +9,7 @@
 import { appConfig } from "../config/appConfig.js";
 import { initRouter } from "./router.js";
 import { startup } from "./startup.js";
-import { db } from "../services/firebaseService.js";
+
 /**
  * Initialize the application.
  */
@@ -78,5 +78,3 @@ document.addEventListener(
     "DOMContentLoaded",
     initializeApp
 );
-
-console.log("Firebase Firestore connected:", db);

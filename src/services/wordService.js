@@ -7,11 +7,14 @@ import {
     saveReview,
     deleteReview,
     mergeWords as mergeWordsInDatabase
-} from "../repositories/WordRepository.js";
+} from "../repositories/wordRepository.js";
 
 import { normalizeArabic } from "../utils/arabicNormalizer.js";
+import { syncWord } from "./syncService.js";
 
-
+/**
+ * Load one word
+ */
 export async function loadWord(id) {
 
     return await getWord(id);
@@ -19,14 +22,24 @@ export async function loadWord(id) {
 }
 
 
+/**
+ * Save one word locally and synchronize
+ * it with Firestore.
+ */
 export async function saveWord(word) {
 
     if (!word) {
 
-        throw new Error("Word is required.");
+        throw new Error(
+            "Word is required."
+        );
 
     }
 
+
+    // =====================================
+    // Update searchable value
+    // =====================================
 
     word.searchKey =
         normalizeArabic(
@@ -34,16 +47,62 @@ export async function saveWord(word) {
         );
 
 
+    // =====================================
+    // Update modification timestamp
+    // =====================================
+
     word.updatedAt =
         new Date();
 
 
-    await updateWord(word);
+    // =====================================
+    // LOCAL SAVE
+    // =====================================
+
+    await updateWord(
+        word
+    );
+
+
+    // =====================================
+    // CLOUD SYNC
+    // =====================================
+
+    try {
+
+        await syncWord(
+            word
+        );
+
+    } catch (error) {
+
+        /*
+         * Local data has already been saved.
+         *
+         * A Firebase/network failure must NOT
+         * prevent the user from continuing to
+         * work with the local dictionary.
+         */
+
+        console.error(
+            "Cloud synchronization failed. " +
+            "Word was saved locally:",
+            error
+        );
+
+    }
 
 }
 
 
-export async function checkDuplicate( wordId,currentWord) {
+/**
+ * Check whether another word already
+ * uses the same normalized searchKey.
+ */
+export async function checkDuplicate(
+    wordId,
+    currentWord
+) {
 
     const searchKey =
         normalizeArabic(
@@ -86,9 +145,18 @@ export async function checkDuplicate( wordId,currentWord) {
 }
 
 
-export async function mergeWords(sourceWord,targetWord) {
+/**
+ * Merge two words.
+ */
+export async function mergeWords(
+    sourceWord,
+    targetWord
+) {
 
-    if (!sourceWord || !targetWord) {
+    if (
+        !sourceWord ||
+        !targetWord
+    ) {
 
         throw new Error(
             "Both words are required for merging."
@@ -255,8 +323,27 @@ export async function mergeWords(sourceWord,targetWord) {
     );
 
 
+    // =====================================
+    // Synchronize surviving word
+    // =====================================
+
+    try {
+
+        await syncWord(
+            targetWord
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Cloud synchronization failed after merge. " +
+            "Merge was saved locally:",
+            error
+        );
+
+    }
+
+
     return targetWord;
 
 }
-
-
