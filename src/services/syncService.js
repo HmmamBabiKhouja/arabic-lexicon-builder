@@ -4,10 +4,15 @@
 ========================================================== */
 
 import {
+    addToSyncQueue,
+    getSyncQueue,
+    removeFromSyncQueue,
+    getWords
+} from "../database/db.js";
+import {
     doc,
     setDoc
 } from "firebase/firestore";
-
 import { db } from "./firebaseService.js";
 
 
@@ -143,6 +148,40 @@ export function markSyncError() {
 
 }
 
+/**
+ * Add a word to the persistent sync queue.
+ */
+export async function queueWordSync(word) {
+
+    if (!word || !word.id) {
+
+        throw new Error(
+            "Cannot queue an invalid word."
+        );
+
+    }
+
+    await addToSyncQueue({
+
+        id: `word:${word.id}`,
+
+        type: "word",
+
+        recordId: String(word.id),
+
+        updatedAt:
+            word.updatedAt instanceof Date
+                ? word.updatedAt.toISOString()
+                : word.updatedAt,
+
+        createdAt:
+            new Date().toISOString()
+
+    });
+
+    markSyncPending();
+
+}
 
 /* ==========================================================
    Firestore synchronization
@@ -231,6 +270,145 @@ export async function syncWord(word) {
 
 
         throw error;
+
+    }
+
+}
+
+/* ==========================================================
+   Sync Queue Processor
+========================================================== */
+
+/**
+ * Process all pending synchronization items.
+ *
+ * The latest version of each word is read from IndexedDB
+ * before uploading to Firestore.
+ */
+export async function processSyncQueue() {
+
+    const queue =
+        await getSyncQueue();
+
+
+    if (!queue.length) {
+
+        markSyncComplete();
+
+        console.log(
+            "SYNC QUEUE: nothing to process."
+        );
+
+        return;
+
+    }
+
+
+    console.log(
+        `SYNC QUEUE: processing ${queue.length} item(s).`
+    );
+
+
+    const words =
+        await getWords();
+
+
+    const wordsById =
+        new Map(
+            words.map(word => [
+                String(word.id),
+                word
+            ])
+        );
+
+
+    let failed = false;
+
+
+    for (const item of queue) {
+
+        try {
+
+            if (item.type !== "word") {
+
+                console.warn(
+                    "SYNC QUEUE: unknown item type:",
+                    item
+                );
+
+                continue;
+
+            }
+
+
+            const word =
+                wordsById.get(
+                    String(item.recordId)
+                );
+
+
+            if (!word) {
+
+                console.warn(
+                    "SYNC QUEUE: word no longer exists locally:",
+                    item.recordId
+                );
+
+                await removeFromSyncQueue(
+                    item.id
+                );
+
+                continue;
+
+            }
+
+
+            await syncWord(
+                word
+            );
+
+
+            await removeFromSyncQueue(
+                item.id
+            );
+
+
+            console.log(
+                "SYNC QUEUE: completed:",
+                item.id
+            );
+
+
+        } catch (error) {
+
+            failed = true;
+
+
+            console.error(
+                "SYNC QUEUE: item failed:",
+                item.id,
+                error
+            );
+
+            /*
+             * IMPORTANT:
+             *
+             * Do not remove the queue item.
+             * It will be retried later.
+             */
+
+        }
+
+    }
+
+
+    if (failed) {
+
+        markSyncError();
+
+    } else {
+
+        markSyncComplete();
 
     }
 

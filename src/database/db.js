@@ -1,12 +1,13 @@
 import { runMigrations } from "./migrations/migrationManager.js";
 
 const DB_NAME = "arabic-review-db";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 const STORES = {
     WORDS: "words",
     REVIEWS: "reviews",
-    SETTINGS: "settings"
+    SETTINGS: "settings",
+    SYNC_QUEUE: "syncQueue"
 };
 
 let db = null;
@@ -115,6 +116,25 @@ export async function openDatabase() {
                     STORES.SETTINGS,
                     {
                         keyPath: "key"
+                    }
+                );
+
+            }
+
+            // =====================================
+            // SYNC QUEUE STORE
+            // =====================================
+
+            if (
+                !db.objectStoreNames.contains(
+                    STORES.SYNC_QUEUE
+                )
+            ) {
+
+                db.createObjectStore(
+                    STORES.SYNC_QUEUE,
+                    {
+                        keyPath: "id"
                     }
                 );
 
@@ -914,6 +934,157 @@ export async function mergeWordRecords(
                     new Error(
                         "Merge transaction aborted."
                     )
+                );
+
+            };
+
+        }
+    );
+
+}
+
+/**
+ * Add or update an item in the sync queue.
+ */
+export async function addToSyncQueue(item) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.SYNC_QUEUE,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.SYNC_QUEUE
+                );
+
+
+            store.put(item);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get all pending sync items.
+ */
+export async function getSyncQueue() {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.SYNC_QUEUE,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.SYNC_QUEUE
+                );
+
+
+            const request =
+                store.getAll();
+
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result
+                );
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Remove an item from the sync queue.
+ */
+export async function removeFromSyncQueue(
+    id
+) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.SYNC_QUEUE,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.SYNC_QUEUE
+                );
+
+
+            store.delete(id);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
                 );
 
             };

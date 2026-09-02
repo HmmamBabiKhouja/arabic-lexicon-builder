@@ -8,9 +8,12 @@ import {
     deleteReview,
     mergeWords as mergeWordsInDatabase
 } from "../repositories/wordRepository.js";
-
+import {
+    syncWord,
+    queueWordSync
+} from "./syncService.js";
 import { normalizeArabic } from "../utils/arabicNormalizer.js";
-import { syncWord } from "./syncService.js";
+
 
 /**
  * Load one word
@@ -20,7 +23,6 @@ export async function loadWord(id) {
     return await getWord(id);
 
 }
-
 
 /**
  * Save one word locally and synchronize
@@ -59,10 +61,9 @@ export async function saveWord(word) {
     // LOCAL SAVE
     // =====================================
 
-    await updateWord(
-        word
-    );
+    await updateWord(word);
 
+    await queueWordSync(word);
 
     // =====================================
     // CLOUD SYNC
@@ -70,9 +71,7 @@ export async function saveWord(word) {
 
     try {
 
-        await syncWord(
-            word
-        );
+        await syncWord(word);
 
     } catch (error) {
 
