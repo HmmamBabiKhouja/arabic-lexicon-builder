@@ -1,5 +1,5 @@
 import { Word } from "../models/Word.js";
-import { loadDictionary } from "../repositories/WordRepository.js";
+import { loadDictionary } from "../repositories/wordRepository.js";
 
 let words = [];
 let currentIndex = 0;

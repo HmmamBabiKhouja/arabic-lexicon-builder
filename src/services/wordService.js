@@ -8,6 +8,7 @@ import {
     deleteReview,
     mergeWords as mergeWordsInDatabase
 } from "../repositories/wordRepository.js";
+
 import {
     syncWord,
     queueWordSync

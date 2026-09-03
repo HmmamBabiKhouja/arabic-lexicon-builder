@@ -1,8 +1,19 @@
 import { getHomeState } from "../services/homeService.js";
+import {
+    signInWithGoogle
+} from "../services/authService.js";
+
 
 export async function renderHomeScreen(container) {
 
+ 
+
     container.innerHTML = `
+        
+        <button id="googleSignInButton">
+        تسجيل الدخول بحساب Google
+        </button>
+
 
         <section class="welcome-card">
 
@@ -23,6 +34,44 @@ export async function renderHomeScreen(container) {
         </section>
 
     `;
+
+    const googleSignInButton =
+    document.getElementById(
+        "googleSignInButton"
+    );
+
+if (googleSignInButton) {
+
+    googleSignInButton.addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                googleSignInButton.disabled = true;
+
+                await signInWithGoogle();
+
+            } catch (error) {
+
+                console.error(
+                    "Google sign-in failed:",
+                    error
+                );
+
+                alert(
+                    "فشل تسجيل الدخول: " +
+                    error.message
+                );
+
+                googleSignInButton.disabled = false;
+
+            }
+
+        }
+    );
+
+}
 
 
     const content =
