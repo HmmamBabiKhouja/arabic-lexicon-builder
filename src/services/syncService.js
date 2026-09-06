@@ -15,7 +15,9 @@ import {
     getSyncQueue,
     removeFromSyncQueue,
     getWords,
-    saveWords
+    saveWords,
+    getReview,
+    saveReview
 } from "../database/db.js";
 
 import {
@@ -199,6 +201,43 @@ export async function queueWordSync(word) {
 
 }
 
+/**
+ * Add a review to the persistent sync queue.
+ */
+export async function queueReviewSync(review) {
+
+    if (!review || !review.wordId) {
+
+        throw new Error(
+            "Cannot queue an invalid review."
+        );
+
+    }
+
+
+    await addToSyncQueue({
+
+        id: `review:${review.wordId}`,
+
+        type: "review",
+
+        recordId: String(review.wordId),
+
+        updatedAt:
+            review.updatedAt instanceof Date
+                ? review.updatedAt.toISOString()
+                : review.updatedAt,
+
+        createdAt:
+            new Date().toISOString()
+
+    });
+
+
+    markSyncPending();
+
+}
+
 
 /* ==========================================================
    Firestore upload
@@ -289,6 +328,83 @@ export async function syncWord(word) {
 
 }
 
+/**
+ * Synchronize one review with Firestore.
+ */
+export async function syncReview(review) {
+
+    if (!review) {
+
+        throw new Error(
+            "Cannot synchronize an empty review."
+        );
+
+    }
+
+
+    if (!review.wordId) {
+
+        throw new Error(
+            "Cannot synchronize a review without a wordId."
+        );
+
+    }
+
+
+    try {
+
+        markSyncing();
+
+
+        const reviewRef =
+            doc(
+                db,
+                "reviews",
+                String(review.wordId)
+            );
+
+
+        await setDoc(
+            reviewRef,
+            {
+                ...review,
+
+                updatedAt:
+                    review.updatedAt instanceof Date
+                        ? review.updatedAt.toISOString()
+                        : review.updatedAt
+            },
+            {
+                merge: true
+            }
+        );
+
+
+        console.log(
+            "Review synchronized with Firestore:",
+            review.wordId
+        );
+
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Firestore review sync failed:",
+            error
+        );
+
+
+        markSyncError();
+
+
+        throw error;
+
+    }
+
+}
+
 
 /* ==========================================================
    Queue processor
@@ -344,18 +460,104 @@ export async function processSyncQueue() {
 
         try {
 
-            if (
-                item.type !== "word"
-            ) {
+    if (item.type === "word") {
 
-                console.warn(
-                    "SYNC QUEUE: unknown item type:",
-                    item
-                );
+        const word =
+            wordsById.get(
+                String(item.recordId)
+            );
 
-                continue;
 
-            }
+        if (!word) {
+
+            console.warn(
+                "SYNC QUEUE: word no longer exists locally:",
+                item.recordId
+            );
+
+
+            await removeFromSyncQueue(
+                item.id
+            );
+
+
+            continue;
+
+        }
+
+
+        await syncWord(
+            word
+        );
+
+
+        await removeFromSyncQueue(
+            item.id
+        );
+
+
+        console.log(
+            "SYNC QUEUE: completed:",
+            item.id
+        );
+
+
+        continue;
+
+    }
+
+
+    if (item.type === "review") {
+
+    const review =
+        await getReview(
+            String(item.recordId)
+        );
+
+
+    if (!review) {
+
+        console.warn(
+            "SYNC QUEUE: review no longer exists locally:",
+            item.recordId
+        );
+
+
+        await removeFromSyncQueue(
+            item.id
+        );
+
+
+        continue;
+
+    }
+
+
+    await syncReview(
+        review
+    );
+
+
+    await removeFromSyncQueue(
+        item.id
+    );
+
+
+    console.log(
+        "SYNC QUEUE: completed:",
+        item.id
+    );
+
+
+    continue;
+
+}
+
+
+console.warn(
+    "SYNC QUEUE: unknown item type:",
+    item
+);
 
 
             const word =
