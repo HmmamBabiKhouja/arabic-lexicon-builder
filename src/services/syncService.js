@@ -1,19 +1,26 @@
 /* ==========================================================
    Mu'jam - Sync Service
-   Step 2: Firestore synchronization
+   Two-way synchronization foundation
 ========================================================== */
+
+import {
+    collection,
+    doc,
+    getDocs,
+    setDoc
+} from "firebase/firestore";
 
 import {
     addToSyncQueue,
     getSyncQueue,
     removeFromSyncQueue,
-    getWords
+    getWords,
+    saveWords
 } from "../database/db.js";
+
 import {
-    doc,
-    setDoc
-} from "firebase/firestore";
-import { db } from "./firebaseService.js";
+    db
+} from "./firebaseService.js";
 
 
 const SYNC_STATUS_KEY = "syncStatus";
@@ -38,7 +45,7 @@ const listeners = new Set();
 ========================================================== */
 
 /**
- * Get current sync status
+ * Get current sync status.
  */
 export function getSyncStatus() {
 
@@ -48,7 +55,7 @@ export function getSyncStatus() {
 
 
 /**
- * Change sync status
+ * Change sync status.
  */
 export function setSyncStatus(newStatus) {
 
@@ -65,7 +72,9 @@ export function setSyncStatus(newStatus) {
 
 
 /**
- * Subscribe to sync status changes
+ * Subscribe to sync status changes.
+ *
+ * Returns an unsubscribe function.
  */
 export function onSyncStatusChange(listener) {
 
@@ -81,7 +90,7 @@ export function onSyncStatusChange(listener) {
 
 
 /**
- * Notify all listeners
+ * Notify all status listeners.
  */
 function notifyListeners() {
 
@@ -110,7 +119,7 @@ function notifyListeners() {
 ========================================================== */
 
 /**
- * Mark that local data has changed
+ * Mark that local data has changed.
  */
 export function markSyncPending() {
 
@@ -120,7 +129,7 @@ export function markSyncPending() {
 
 
 /**
- * Mark synchronization as started
+ * Mark synchronization as started.
  */
 export function markSyncing() {
 
@@ -130,7 +139,7 @@ export function markSyncing() {
 
 
 /**
- * Mark synchronization as successfully completed
+ * Mark synchronization as successfully completed.
  */
 export function markSyncComplete() {
 
@@ -140,13 +149,18 @@ export function markSyncComplete() {
 
 
 /**
- * Mark synchronization as failed
+ * Mark synchronization as failed.
  */
 export function markSyncError() {
 
     setSyncStatus("error");
 
 }
+
+
+/* ==========================================================
+   Queue
+========================================================== */
 
 /**
  * Add a word to the persistent sync queue.
@@ -160,6 +174,7 @@ export async function queueWordSync(word) {
         );
 
     }
+
 
     await addToSyncQueue({
 
@@ -179,19 +194,21 @@ export async function queueWordSync(word) {
 
     });
 
+
     markSyncPending();
 
 }
 
+
 /* ==========================================================
-   Firestore synchronization
+   Firestore upload
 ========================================================== */
 
 /**
  * Synchronize one word with Firestore.
  *
- * The local IndexedDB record remains the primary record.
- * Firestore receives a copy of the word.
+ * IndexedDB remains the local database.
+ * Firestore stores the cloud copy.
  */
 export async function syncWord(word) {
 
@@ -247,9 +264,6 @@ export async function syncWord(word) {
         );
 
 
-        markSyncComplete();
-
-
         console.log(
             "Word synchronized with Firestore:",
             word.id
@@ -275,15 +289,16 @@ export async function syncWord(word) {
 
 }
 
+
 /* ==========================================================
-   Sync Queue Processor
+   Queue processor
 ========================================================== */
 
 /**
  * Process all pending synchronization items.
  *
- * The latest version of each word is read from IndexedDB
- * before uploading to Firestore.
+ * The latest local word is read from IndexedDB
+ * before uploading.
  */
 export async function processSyncQueue() {
 
@@ -329,7 +344,9 @@ export async function processSyncQueue() {
 
         try {
 
-            if (item.type !== "word") {
+            if (
+                item.type !== "word"
+            ) {
 
                 console.warn(
                     "SYNC QUEUE: unknown item type:",
@@ -354,9 +371,11 @@ export async function processSyncQueue() {
                     item.recordId
                 );
 
+
                 await removeFromSyncQueue(
                     item.id
                 );
+
 
                 continue;
 
@@ -391,10 +410,8 @@ export async function processSyncQueue() {
             );
 
             /*
-             * IMPORTANT:
-             *
-             * Do not remove the queue item.
-             * It will be retried later.
+             * Keep the queue item so it can
+             * be retried later.
              */
 
         }
@@ -416,11 +433,251 @@ export async function processSyncQueue() {
 
 
 /* ==========================================================
+   Firestore → IndexedDB
+========================================================== */
+
+/**
+ * Pull words from Firestore into IndexedDB.
+ *
+ * Rules:
+ *
+ * 1. Missing local word
+ *    → create locally
+ *
+ * 2. Firestore newer
+ *    → update local copy
+ *
+ * 3. Local newer or equal
+ *    → keep local copy
+ */
+export async function pullWordsFromFirestore() {
+
+    try {
+
+        markSyncing();
+
+
+        console.log(
+            "SYNC PULL: downloading words from Firestore..."
+        );
+
+
+        const snapshot =
+            await getDocs(
+                collection(
+                    db,
+                    "words"
+                )
+            );
+
+
+        const localWords =
+            await getWords();
+
+
+        const localById =
+            new Map(
+                localWords.map(word => [
+                    String(word.id),
+                    word
+                ])
+            );
+
+
+        let imported = 0;
+        let updated = 0;
+        let skipped = 0;
+
+
+        for (
+            const documentSnapshot
+            of snapshot.docs
+        ) {
+
+            const remoteWord =
+                documentSnapshot.data();
+
+
+            const remoteId =
+                String(
+                    remoteWord.id ??
+                    documentSnapshot.id
+                );
+
+
+            const localWord =
+                localById.get(
+                    remoteId
+                );
+
+
+            /* ---------------------------------
+               Word does not exist locally
+            --------------------------------- */
+
+            if (!localWord) {
+
+                await saveWords([
+                    {
+                        ...remoteWord,
+
+                        id: remoteId,
+
+                        createdAt:
+                            remoteWord.createdAt
+                                ? new Date(
+                                    remoteWord.createdAt
+                                )
+                                : new Date(),
+
+                        updatedAt:
+                            remoteWord.updatedAt
+                                ? new Date(
+                                    remoteWord.updatedAt
+                                )
+                                : new Date()
+                    }
+                ]);
+
+
+                imported++;
+
+                continue;
+
+            }
+
+
+            /* ---------------------------------
+               Compare timestamps
+            --------------------------------- */
+
+            const localUpdatedAt =
+                new Date(
+                    localWord.updatedAt
+                ).getTime();
+
+
+            const remoteUpdatedAt =
+                new Date(
+                    remoteWord.updatedAt
+                ).getTime();
+
+
+            if (
+                Number.isNaN(
+                    remoteUpdatedAt
+                )
+            ) {
+
+                console.warn(
+                    "SYNC PULL: invalid remote updatedAt:",
+                    remoteId
+                );
+
+
+                skipped++;
+
+                continue;
+
+            }
+
+
+            /* ---------------------------------
+               Firestore is newer
+            --------------------------------- */
+
+            if (
+                remoteUpdatedAt >
+                localUpdatedAt
+            ) {
+
+                await saveWords([
+                    {
+                        ...remoteWord,
+
+                        /*
+                         * Preserve the exact local
+                         * IndexedDB key.
+                         */
+                        id: localWord.id,
+
+                        createdAt:
+                            remoteWord.createdAt
+                                ? new Date(
+                                    remoteWord.createdAt
+                                )
+                                : localWord.createdAt,
+
+                        updatedAt:
+                            remoteWord.updatedAt
+                                ? new Date(
+                                    remoteWord.updatedAt
+                                )
+                                : localWord.updatedAt
+                    }
+                ]);
+
+
+                updated++;
+
+                continue;
+
+            }
+
+
+            /* ---------------------------------
+               Local is newer or equal
+            --------------------------------- */
+
+            skipped++;
+
+        }
+
+
+        markSyncComplete();
+
+
+        console.log(
+            "SYNC PULL COMPLETE:",
+            {
+                imported,
+                updated,
+                skipped
+            }
+        );
+
+
+        return {
+            imported,
+            updated,
+            skipped
+        };
+
+
+    } catch (error) {
+
+        console.error(
+            "SYNC PULL FAILED:",
+            error
+        );
+
+
+        markSyncError();
+
+
+        throw error;
+
+    }
+
+}
+
+
+/* ==========================================================
    Restore saved status
 ========================================================== */
 
 /**
- * Restore saved status when the app starts
+ * Restore saved status when the app starts.
  */
 export function initializeSyncStatus() {
 

@@ -1,43 +1,23 @@
+/* ==========================================================
+   Mu'jam - Application Startup
+========================================================== */
+
 import {
     initializeDictionary,
     setCurrentIndex
 } from "../services/dictionaryService.js";
 
-import {loadCurrentIndex} from "../services/settingsService.js";
+import {
+    loadCurrentIndex
+} from "../services/settingsService.js";
 
 import {
     initializeSyncStatus,
     processSyncQueue
 } from "../services/syncService.js";
 
-import {
-    handleRedirectResult,
-    onUserChanged
-} from "../services/authService.js";
 
 export async function startup() {
-
-    await handleRedirectResult();
-
-onUserChanged(user => {
-
-    if (user) {
-
-        console.log(
-            "Firebase user:",
-            user.uid,
-            user.email
-        );
-
-    } else {
-
-        console.log(
-            "No Firebase user signed in."
-        );
-
-    }
-
-});
 
     // =====================================
     // Initialize sync status
@@ -97,7 +77,7 @@ onUserChanged(user => {
 
 
     // =====================================
-    // Listen for internet connection recovery
+    // Process queue when connection returns
     // =====================================
 
     window.addEventListener(
@@ -110,6 +90,8 @@ onUserChanged(user => {
             );
 
 
+        if (navigator.onLine) {
+
             try {
 
                 await processSyncQueue();
@@ -117,11 +99,20 @@ onUserChanged(user => {
             } catch (error) {
 
                 console.error(
-                    "Automatic sync after reconnect failed:",
+                    "Automatic sync failed:",
                     error
                 );
 
             }
+
+        } else {
+
+            console.log(
+                "Device is offline. " +
+                "Pending sync will remain queued."
+            );
+
+        }
 
         }
     );

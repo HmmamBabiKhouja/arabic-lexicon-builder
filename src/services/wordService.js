@@ -66,31 +66,25 @@ export async function saveWord(word) {
 
     await queueWordSync(word);
 
-    // =====================================
-    // CLOUD SYNC
-    // =====================================
 
-    try {
-
-        await syncWord(word);
-
-    } catch (error) {
-
-        /*
-         * Local data has already been saved.
-         *
-         * A Firebase/network failure must NOT
-         * prevent the user from continuing to
-         * work with the local dictionary.
-         */
+    /*
+    * Do not wait for Firestore.
+    *
+    * The local save is already complete.
+    * Firestore synchronization happens in the
+    * background and cannot block the editor.
+    */
+    void syncWord(
+        word
+    ).catch(error => {
 
         console.error(
             "Cloud synchronization failed. " +
-            "Word was saved locally:",
+            "Word was saved locally and remains queued:",
             error
         );
 
-    }
+    });
 
 }
 
