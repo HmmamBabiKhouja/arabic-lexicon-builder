@@ -4,13 +4,6 @@
    Responsive + Mobile First + RTL
 ========================================================== */
 
-@import url("./variables.css");
-@import url("./layout.css");
-@import url("./buttons.css");
-@import url("./cards.css");
-@import url("./forms.css");
-
-
 /* ==========================================================
    ROOT VARIABLES
 ========================================================== */
@@ -830,5 +823,139 @@ footer {
         min-height: 50px;
 
     }
+
+}
+
+
+/* ==========================================================
+   REVIEW
+========================================================== */
+
+.review-screen .progress-info {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 8px;
+
+    color: var(--text-light);
+
+}
+
+.review-screen .word {
+
+    font-size: 2.8rem;
+
+    text-align: center;
+
+    margin: 12px 0 8px;
+
+}
+
+.review-actions {
+
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 12px;
+
+    margin-top: 20px;
+
+}
+
+.review-actions button {
+
+    min-height: 56px;
+
+    font-size: 1.15rem;
+
+    font-weight: 700;
+
+}
+
+.review-keep {
+
+    background: var(--success);
+
+}
+
+.review-keep:hover {
+
+    background: #15803d;
+
+}
+
+.review-reject {
+
+    background: var(--danger);
+
+}
+
+.review-reject:hover {
+
+    background: #b91c1c;
+
+}
+
+.review-secondary {
+
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 8px;
+
+    margin-top: 14px;
+
+}
+
+.ghost-button {
+
+    background: transparent;
+
+    color: var(--text);
+
+    border: 1px solid var(--border);
+
+    min-height: 44px;
+
+}
+
+.ghost-button:hover {
+
+    background: var(--background);
+
+}
+
+.sync-status {
+
+    margin: 12px 0 0;
+
+    padding: 10px 12px;
+
+    border-radius: 10px;
+
+    background: var(--background);
+
+    color: var(--text-light);
+
+    font-size: .95rem;
+
+}
+
+.sync-status[data-status="syncing"],
+.sync-status[data-status="pending"] {
+
+    color: var(--primary);
+
+}
+
+.sync-status[data-status="error"] {
+
+    color: var(--danger);
 
 }

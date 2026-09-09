@@ -16,45 +16,135 @@ import {
 
 export { upsertWordInMemory, removeWordFromMemory, isReviewFinished };
 
+function isPending(word) {
+    return Boolean(word) && (!word.status || word.status === "pending");
+}
+
+function findPendingIndex(from, direction, wrap = true, excludeIndex = null) {
+
+    const words = getWordsState();
+    const count = words.length;
+
+    if (!count) {
+        return -1;
+    }
+
+    if (direction > 0) {
+
+        for (let i = from; i < count; i++) {
+            if (i !== excludeIndex && isPending(words[i])) {
+                return i;
+            }
+        }
+
+        if (wrap) {
+            for (let i = 0; i < from; i++) {
+                if (i !== excludeIndex && isPending(words[i])) {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+
+    }
+
+    for (let i = from; i >= 0; i--) {
+        if (i !== excludeIndex && isPending(words[i])) {
+            return i;
+        }
+    }
+
+    if (wrap) {
+        for (let i = count - 1; i > from; i--) {
+            if (i !== excludeIndex && isPending(words[i])) {
+                return i;
+            }
+        }
+    }
+
+    return -1;
+
+}
+
+function moveToPending(index) {
+
+    if (index < 0) {
+        clampCurrentIndex();
+        setReviewFinished(getPendingCount() === 0);
+        return null;
+    }
+
+    setReviewFinished(false);
+    setIndexState(index);
+    return getCurrentWord();
+
+}
+
 export function setWords(newWords) {
     setWordsState(newWords);
     setIndexState(0);
+    setReviewFinished(false);
 }
 
 export function getCurrentWord() {
     return getWordsState()[getIndexState()] ?? null;
 }
 
-export function nextWord() {
+export function getPendingCount() {
+    return getWordsState().filter(isPending).length;
+}
+
+export function ensurePendingReviewPosition() {
+
     const words = getWordsState();
+
+    if (!words.length) {
+        setIndexState(0);
+        setReviewFinished(true);
+        return null;
+    }
+
+    const current = getIndexState();
+    const pendingIndex = isPending(words[current])
+        ? current
+        : findPendingIndex(current, 1, true);
+
+    return moveToPending(pendingIndex);
+
+}
+
+export function nextWord() {
+
     const currentIndex = getIndexState();
+    const pendingIndex = findPendingIndex(
+        currentIndex + 1,
+        1,
+        true,
+        currentIndex
+    );
 
-    if (words.length === 0) {
-        setReviewFinished(true);
-        return null;
-    }
+    return moveToPending(pendingIndex);
 
-    if (currentIndex >= words.length - 1) {
-        setReviewFinished(true);
-        clampCurrentIndex();
-        return null;
-    }
-
-    setReviewFinished(false);
-    setIndexState(currentIndex + 1);
-    return getCurrentWord();
 }
 
 export function previousWord() {
+
     const currentIndex = getIndexState();
+    const pendingIndex = findPendingIndex(
+        currentIndex - 1,
+        -1,
+        true,
+        currentIndex
+    );
 
-    setReviewFinished(false);
-
-    if (currentIndex > 0) {
-        setIndexState(currentIndex - 1);
+    if (pendingIndex < 0) {
+        setReviewFinished(false);
+        return getCurrentWord();
     }
 
-    return getCurrentWord();
+    return moveToPending(pendingIndex);
+
 }
 
 export function getCurrentIndex() {
@@ -73,7 +163,7 @@ export function setCurrentIndex(index) {
 
     if (index >= words.length) {
         setIndexState(words.length - 1);
-        setReviewFinished(true);
+        setReviewFinished(false);
         return;
     }
 
@@ -104,7 +194,7 @@ export async function persistReviewPosition() {
 }
 
 /**
- * Persist categories and review outcome, then move forward.
+ * Persist categories and review outcome, then move to the next pending word.
  */
 export async function completeCurrentReview({
     categories = [],

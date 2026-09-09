@@ -9,6 +9,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "preview": "vite preview",
     "sync": "node scripts/sync-web.js",
     "android": "npm run sync && npx cap sync android",
     "build": "vite build"

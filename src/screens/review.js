@@ -2,32 +2,41 @@ import {
     getCurrentWord,
     getCurrentIndex,
     getTotalWords,
+    getPendingCount,
     completeCurrentReview,
     skipCurrentWord,
     goToPreviousWord,
     isReviewFinished,
-    resumeReview
+    resumeReview,
+    ensurePendingReviewPosition
 } from "../services/dictionaryService.js";
 
 import { categories } from "../config/categories.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 /**
  * Review Screen
  */
-export async function renderReviewScreen(container) {
+export async function renderReviewScreen(container, options = {}) {
+
+    if (!options.resume) {
+        ensurePendingReviewPosition();
+    } else {
+        resumeReview();
+    }
 
     const currentWord = getCurrentWord();
 
     if (!currentWord || isReviewFinished()) {
 
         container.innerHTML = `
-            <section class="welcome-card">
+            <section class="welcome-card review-screen">
 
-                <h2>تمت مراجعة جميع الكلمات 🎉</h2>
+                <h2>لا توجد كلمات بانتظار المراجعة 🎉</h2>
 
                 ${currentWord ? `
                     <button id="resumeButton">
-                        مراجعة آخر كلمة
+                        عرض آخر كلمة
                     </button>
                 ` : ""}
 
@@ -42,9 +51,7 @@ export async function renderReviewScreen(container) {
             .getElementById("resumeButton")
             ?.addEventListener("click", async () => {
 
-                resumeReview();
-
-                await renderReviewScreen(container);
+                await renderReviewScreen(container, { resume: true });
 
             });
 
@@ -61,6 +68,7 @@ export async function renderReviewScreen(container) {
 
     const currentIndex = getCurrentIndex();
     const totalWords = getTotalWords();
+    const pendingCount = getPendingCount();
     const wordCategories = Array.isArray(currentWord.categories)
         ? currentWord.categories
         : [];
@@ -84,23 +92,22 @@ export async function renderReviewScreen(container) {
 
     container.innerHTML = `
 
-        <section class="welcome-card">
+        <section class="welcome-card review-screen">
 
             <div class="progress-info">
 
                 <strong>
-
-                    ${currentIndex} / ${totalWords}
-
+                    المتبقي ${pendingCount}
                 </strong>
+                <span>
+                    ${currentIndex} / ${totalWords}
+                </span>
 
             </div>
 
-            <h2>مراجعة الكلمات</h2>
-
             <h1 class="word">
 
-                ${currentWord.currentWord}
+                ${escapeHtml(currentWord.currentWord)}
 
             </h1>
 
@@ -117,44 +124,34 @@ export async function renderReviewScreen(container) {
 
             </div>
 
-            <br>
+            <div class="review-actions">
 
-            <div class="button-group">
-
-                <button id="keepButton">
-
+                <button id="keepButton" class="review-keep">
                     قبول
-
                 </button>
 
-                <button id="rejectButton">
-
+                <button id="rejectButton" class="review-reject">
                     استبعاد
-
                 </button>
 
-                <button id="skipButton">
+            </div>
 
+            <div class="review-secondary">
+
+                <button id="skipButton" class="ghost-button">
                     تخطي
-
                 </button>
 
-                <button id="previousButton">
-
+                <button id="previousButton" class="ghost-button">
                     السابق
-
                 </button>
 
-                <button id="editButton">
-
-                    ✏ تعديل
-
+                <button id="editButton" class="ghost-button">
+                    تعديل
                 </button>
 
-                <button id="backButton">
-
-                    العودة للرئيسية
-
+                <button id="backButton" class="ghost-button">
+                    الرئيسية
                 </button>
 
             </div>
@@ -186,7 +183,7 @@ function readSelectedCategories() {
 function setBusy(isBusy) {
 
     document
-        .querySelectorAll(".button-group button")
+        .querySelectorAll(".review-screen button")
         .forEach(button => {
 
             button.disabled = isBusy;

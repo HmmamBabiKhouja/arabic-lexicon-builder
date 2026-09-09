@@ -1,17 +1,40 @@
 import { getHomeState } from "../services/homeService.js";
 import {
-    signInWithGoogle
+    signInWithGoogle,
+    getCurrentUser
 } from "../services/authService.js";
+import {
+    getSyncStatus,
+    onSyncStatusChange
+} from "../services/syncService.js";
+import {
+    exportAcceptedWords
+} from "../services/exportService.js";
+
+
+const SYNC_LABELS = {
+    idle: "المزامنة جاهزة",
+    pending: "توجد تغييرات بانتظار المزامنة",
+    syncing: "جارٍ المزامنة...",
+    error: "فشل المزامنة"
+};
+
+let stopSyncListener = null;
+
+
+function syncLabel(status) {
+    return SYNC_LABELS[status] || SYNC_LABELS.idle;
+}
 
 
 export async function renderHomeScreen(container) {
 
- 
+    const user = getCurrentUser();
 
     container.innerHTML = `
         
         <button id="googleSignInButton">
-        تسجيل الدخول بحساب Google
+        ${user ? "الحساب متصل" : "تسجيل الدخول بحساب Google"}
         </button>
 
 
@@ -21,6 +44,20 @@ export async function renderHomeScreen(container) {
 
             <p>
                 منشئ المعجم العربي
+            </p>
+
+            ${user ? `
+                <p>
+                    ${user.email || user.displayName || ""}
+                </p>
+            ` : ""}
+
+            <p
+                id="syncStatus"
+                class="sync-status"
+                data-status="${getSyncStatus()}"
+            >
+                ${syncLabel(getSyncStatus())}
             </p>
 
             <div id="homeContent">
@@ -41,6 +78,10 @@ export async function renderHomeScreen(container) {
     );
 
 if (googleSignInButton) {
+
+    if (user) {
+        googleSignInButton.disabled = true;
+    }
 
     googleSignInButton.addEventListener(
         "click",
@@ -72,6 +113,27 @@ if (googleSignInButton) {
     );
 
 }
+
+    const syncStatus =
+        document.getElementById("syncStatus");
+
+    if (stopSyncListener) {
+        stopSyncListener();
+    }
+
+    stopSyncListener = onSyncStatusChange(status => {
+
+        const statusEl =
+            document.getElementById("syncStatus");
+
+        if (!statusEl) {
+            return;
+        }
+
+        statusEl.dataset.status = status;
+        statusEl.textContent = syncLabel(status);
+
+    });
 
 
     const content =
@@ -279,6 +341,13 @@ if (googleSignInButton) {
                 </button>
 
 
+                <button id="exportButton">
+
+                    تصدير الكلمات المقبولة
+
+                </button>
+
+
                 <button id="searchButton">
 
                     🔍 البحث في القاموس
@@ -303,10 +372,6 @@ if (googleSignInButton) {
         `;
 
 
-        // =====================================
-        // زر المراجعة
-        // =====================================
-
         document
             .getElementById("reviewButton")
             .addEventListener(
@@ -320,9 +385,56 @@ if (googleSignInButton) {
             );
 
 
-        // =====================================
-        // زر البحث
-        // =====================================
+        document
+            .getElementById("exportButton")
+            .addEventListener(
+                "click",
+                async () => {
+
+                    const exportButton =
+                        document.getElementById("exportButton");
+
+                    exportButton.disabled = true;
+
+                    try {
+
+                        const count =
+                            await exportAcceptedWords();
+
+                        alert(
+                            `تم تصدير ${count} كلمة مقبولة.`
+                        );
+
+                    } catch (error) {
+
+                        if (error.message === "NO_ACCEPTED_WORDS") {
+
+                            alert(
+                                "لا توجد كلمات مقبولة للتصدير بعد."
+                            );
+
+                        } else {
+
+                            console.error(
+                                "Export failed:",
+                                error
+                            );
+
+                            alert(
+                                "تعذر تصدير الملف."
+                            );
+
+                        }
+
+                    } finally {
+
+                        exportButton.disabled = false;
+
+                    }
+
+                }
+            );
+
 
         document
             .getElementById("searchButton")
@@ -336,9 +448,6 @@ if (googleSignInButton) {
                 }
             );
 
-        // =====================================
-        // زر التكرارات
-        // =====================================
 
         document
             .getElementById("duplicatesButton")
@@ -352,9 +461,6 @@ if (googleSignInButton) {
                 }
             );
 
-        // =====================================
-        // زر الاستيراد
-        // =====================================
 
         document
             .getElementById("importButton")
@@ -396,4 +502,3 @@ if (googleSignInButton) {
     }
 
 }
-

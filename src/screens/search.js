@@ -25,6 +25,14 @@ export async function renderSearchScreen(container) {
 
             <br><br>
 
+            <button id="backButton">
+
+                رجوع
+
+            </button>
+
+            <br><br>
+
             <div id="results"></div>
 
         </section>
@@ -190,6 +198,15 @@ export async function renderSearchScreen(container) {
         "click",
         performSearch
     );
+
+
+    document
+        .getElementById("backButton")
+        ?.addEventListener("click", () => {
+
+            window.location.hash = "#/";
+
+        });
 
 
     input.addEventListener(

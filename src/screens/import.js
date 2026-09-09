@@ -3,7 +3,8 @@ import { Word } from "../models/Word.js";
 import { setWords, hasWords } from "../services/dictionaryService.js";
 import { saveCurrentIndex } from "../services/settingsService.js";
 import { openDatabase } from "../database/db.js";
-import { importWords } from "../repositories/WordRepository.js";
+import { importWords, loadDictionary } from "../repositories/WordRepository.js";
+import { normalizeArabic } from "../utils/arabicNormalizer.js";
 
 export function renderImportScreen(container) {
 
@@ -15,6 +16,10 @@ export function renderImportScreen(container) {
 
             <p>
                 ملف TSV: الكلمة ثم علامة تبويب ثم التكرار.
+            </p>
+
+            <p>
+                الكلمات الجديدة تُضاف بمعرّفات جديدة. الكلمات الموجودة مسبقاً لا تُستبدل.
             </p>
 
             <input
@@ -53,6 +58,30 @@ export function renderImportScreen(container) {
 
 }
 
+function nextNumericId(words) {
+
+    let maxId = 0;
+
+    for (const word of words) {
+
+        const numericId = Number(word.id);
+
+        if (Number.isFinite(numericId) && numericId > maxId) {
+            maxId = numericId;
+        }
+
+    }
+
+    return maxId + 1;
+
+}
+
+function searchKeyOf(word) {
+
+    return word.searchKey || normalizeArabic(word.currentWord || word.originalWord || "");
+
+}
+
 function registerEvents() {
 
     document
@@ -87,7 +116,7 @@ function registerEvents() {
             if (hasWords()) {
 
                 const confirmed = confirm(
-                    "يوجد قاموس محفوظ بالفعل. الاستيراد سيستبدل الكلمات ذات المعرّفات نفسها. هل تريد المتابعة؟"
+                    "سيتم إضافة الكلمات الجديدة فقط. الكلمات الموجودة مسبقاً لن تُستبدل. هل تريد المتابعة؟"
                 );
 
                 if (!confirmed) {
@@ -115,22 +144,47 @@ function registerEvents() {
 
                 }
 
-                const dictionary = rows.map((row, index) =>
-                    new Word(
-                        index + 1,
-                        row.word,
-                        row.frequency
-                    )
+                const existing = await loadDictionary();
+                const existingKeys = new Set(
+                    existing.map(searchKeyOf).filter(Boolean)
                 );
 
-                await importWords(dictionary);
+                let nextId = nextNumericId(existing);
+                const toAdd = [];
+                let skipped = 0;
+
+                for (const row of rows) {
+
+                    const searchKey = normalizeArabic(row.word);
+
+                    if (!searchKey || existingKeys.has(searchKey)) {
+                        skipped += 1;
+                        continue;
+                    }
+
+                    existingKeys.add(searchKey);
+                    toAdd.push(
+                        new Word(
+                            nextId,
+                            row.word,
+                            row.frequency
+                        )
+                    );
+                    nextId += 1;
+
+                }
+
+                if (toAdd.length) {
+                    await importWords(toAdd);
+                }
+
+                const dictionary = await loadDictionary();
 
                 setWords(dictionary);
-
                 await saveCurrentIndex(0);
 
                 status.textContent =
-                    `تم حفظ ${dictionary.length} كلمة`;
+                    `تمت إضافة ${toAdd.length} كلمة. تم تخطي ${skipped} مكررة.`;
 
                 setTimeout(() => {
 
