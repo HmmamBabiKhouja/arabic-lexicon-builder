@@ -4,7 +4,9 @@ import {
     getTotalWords,
     completeCurrentReview,
     skipCurrentWord,
-    goToPreviousWord
+    goToPreviousWord,
+    isReviewFinished,
+    resumeReview
 } from "../services/dictionaryService.js";
 
 import { categories } from "../config/categories.js";
@@ -16,12 +18,18 @@ export async function renderReviewScreen(container) {
 
     const currentWord = getCurrentWord();
 
-    if (!currentWord) {
+    if (!currentWord || isReviewFinished()) {
 
         container.innerHTML = `
             <section class="welcome-card">
 
                 <h2>تمت مراجعة جميع الكلمات 🎉</h2>
+
+                ${currentWord ? `
+                    <button id="resumeButton">
+                        مراجعة آخر كلمة
+                    </button>
+                ` : ""}
 
                 <button id="backButton">
                     العودة للرئيسية
@@ -29,6 +37,16 @@ export async function renderReviewScreen(container) {
 
             </section>
         `;
+
+        document
+            .getElementById("resumeButton")
+            ?.addEventListener("click", async () => {
+
+                resumeReview();
+
+                await renderReviewScreen(container);
+
+            });
 
         document
             .getElementById("backButton")
@@ -184,6 +202,10 @@ function registerEvents() {
         ?.addEventListener("click", () => {
 
             const currentWord = getCurrentWord();
+
+            if (!currentWord) {
+                return;
+            }
 
             window.location.hash =
                 "#/word/" + currentWord.id;

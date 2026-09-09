@@ -8,10 +8,13 @@ import {
     getIndexState,
     setIndexState,
     upsertWordInMemory,
-    removeWordFromMemory
+    removeWordFromMemory,
+    clampCurrentIndex,
+    isReviewFinished,
+    setReviewFinished
 } from "./dictionaryState.js";
 
-export { upsertWordInMemory, removeWordFromMemory };
+export { upsertWordInMemory, removeWordFromMemory, isReviewFinished };
 
 export function setWords(newWords) {
     setWordsState(newWords);
@@ -24,22 +27,31 @@ export function getCurrentWord() {
 
 export function nextWord() {
     const words = getWordsState();
-    let currentIndex = getIndexState();
+    const currentIndex = getIndexState();
 
-    if (currentIndex < words.length) {
-        currentIndex++;
-        setIndexState(currentIndex);
+    if (words.length === 0) {
+        setReviewFinished(true);
+        return null;
     }
 
+    if (currentIndex >= words.length - 1) {
+        setReviewFinished(true);
+        clampCurrentIndex();
+        return null;
+    }
+
+    setReviewFinished(false);
+    setIndexState(currentIndex + 1);
     return getCurrentWord();
 }
 
 export function previousWord() {
-    let currentIndex = getIndexState();
+    const currentIndex = getIndexState();
+
+    setReviewFinished(false);
 
     if (currentIndex > 0) {
-        currentIndex--;
-        setIndexState(currentIndex);
+        setIndexState(currentIndex - 1);
     }
 
     return getCurrentWord();
@@ -55,14 +67,17 @@ export function setCurrentIndex(index) {
 
     if (words.length === 0 || index < 0) {
         setIndexState(0);
+        setReviewFinished(words.length === 0);
         return;
     }
 
-    if (index > words.length) {
-        setIndexState(words.length);
+    if (index >= words.length) {
+        setIndexState(words.length - 1);
+        setReviewFinished(true);
         return;
     }
 
+    setReviewFinished(false);
     setIndexState(index);
 }
 
@@ -137,6 +152,11 @@ export async function goToPreviousWord() {
 
 export function resetReview() {
     setIndexState(0);
+    setReviewFinished(false);
+}
+
+export function resumeReview() {
+    setReviewFinished(false);
 }
 
 export function hasWords() {

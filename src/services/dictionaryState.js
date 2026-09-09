@@ -1,5 +1,6 @@
 let words = [];
 let currentIndex = 0;
+let reviewFinished = false;
 
 export function getWordsState() {
     return words;
@@ -7,6 +8,7 @@ export function getWordsState() {
 
 export function setWordsState(newWords) {
     words = newWords;
+    reviewFinished = false;
 }
 
 export function getIndexState() {
@@ -15,6 +17,36 @@ export function getIndexState() {
 
 export function setIndexState(index) {
     currentIndex = index;
+}
+
+export function isReviewFinished() {
+    return reviewFinished;
+}
+
+export function setReviewFinished(finished) {
+    reviewFinished = Boolean(finished);
+}
+
+/**
+ * Keep currentIndex in 0 .. words.length - 1
+ * (or 0 when the dictionary is empty).
+ */
+export function clampCurrentIndex() {
+
+    if (words.length === 0) {
+        currentIndex = 0;
+        return;
+    }
+
+    if (currentIndex < 0) {
+        currentIndex = 0;
+        return;
+    }
+
+    if (currentIndex >= words.length) {
+        currentIndex = words.length - 1;
+    }
+
 }
 
 export function upsertWordInMemory(word) {
@@ -38,8 +70,6 @@ export function removeWordFromMemory(wordId) {
         w => String(w.id) !== String(wordId)
     );
 
-    if (currentIndex > words.length) {
-        currentIndex = words.length;
-    }
+    clampCurrentIndex();
 
 }
