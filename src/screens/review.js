@@ -1,9 +1,10 @@
 import {
     getCurrentWord,
-    nextWord,
-    saveCategories,
     getCurrentIndex,
-    getTotalWords
+    getTotalWords,
+    completeCurrentReview,
+    skipCurrentWord,
+    goToPreviousWord
 } from "../services/dictionaryService.js";
 
 import { categories } from "../config/categories.js";
@@ -42,6 +43,9 @@ export async function renderReviewScreen(container) {
 
     const currentIndex = getCurrentIndex();
     const totalWords = getTotalWords();
+    const wordCategories = Array.isArray(currentWord.categories)
+        ? currentWord.categories
+        : [];
 
     const categoryHTML = categories
         .map(category => `
@@ -50,7 +54,7 @@ export async function renderReviewScreen(container) {
                 <input
                     type="checkbox"
                     value="${category.id}"
-                    ${currentWord.categories.includes(category.id) ? "checked" : ""}
+                    ${wordCategories.includes(category.id) ? "checked" : ""}
 
                 >
 
@@ -74,7 +78,7 @@ export async function renderReviewScreen(container) {
 
             </div>
 
-            <h2>Review</h2>
+            <h2>مراجعة الكلمات</h2>
 
             <h1 class="word">
 
@@ -84,8 +88,8 @@ export async function renderReviewScreen(container) {
 
             <p class="frequency">
 
-                Frequency:
-                ${currentWord.frequency.toLocaleString()}
+                التكرار:
+                ${Number(currentWord.frequency || 0).toLocaleString()}
 
             </p>
 
@@ -99,15 +103,33 @@ export async function renderReviewScreen(container) {
 
             <div class="button-group">
 
-                <button id="editButton">
+                <button id="keepButton">
 
-                    ✏ Edit
+                    قبول
 
                 </button>
 
-                <button id="nextButton">
+                <button id="rejectButton">
 
-                    التالي
+                    استبعاد
+
+                </button>
+
+                <button id="skipButton">
+
+                    تخطي
+
+                </button>
+
+                <button id="previousButton">
+
+                    السابق
+
+                </button>
+
+                <button id="editButton">
+
+                    ✏ تعديل
 
                 </button>
 
@@ -127,6 +149,34 @@ export async function renderReviewScreen(container) {
 
 }
 
+function readSelectedCategories() {
+
+    const selectedCategories = [];
+
+    document
+        .querySelectorAll(".categories input:checked")
+        .forEach(cb => {
+
+            selectedCategories.push(cb.value);
+
+        });
+
+    return selectedCategories;
+
+}
+
+function setBusy(isBusy) {
+
+    document
+        .querySelectorAll(".button-group button")
+        .forEach(button => {
+
+            button.disabled = isBusy;
+
+        });
+
+}
+
 function registerEvents() {
 
     document
@@ -141,37 +191,104 @@ function registerEvents() {
         });
 
     document
-        .getElementById("nextButton")
-        .addEventListener("click", () => {
+        .getElementById("keepButton")
+        .addEventListener("click", async () => {
 
-            const currentWord = getCurrentWord();
+            setBusy(true);
 
-            if (!currentWord) {
+            try {
 
-                return;
+                await completeCurrentReview({
+                    categories: readSelectedCategories(),
+                    accepted: true,
+                    status: "reviewed"
+                });
+
+                await renderReviewScreen(
+                    document.getElementById("app")
+                );
+
+            } catch (error) {
+
+                console.error("Failed to save review:", error);
+                setBusy(false);
+                alert("تعذر حفظ المراجعة.");
 
             }
 
-            const selectedCategories = [];
+        });
 
-            document
-                .querySelectorAll(".categories input:checked")
-                .forEach(cb => {
+    document
+        .getElementById("rejectButton")
+        .addEventListener("click", async () => {
 
-                    selectedCategories.push(cb.value);
+            setBusy(true);
 
+            try {
+
+                await completeCurrentReview({
+                    categories: readSelectedCategories(),
+                    accepted: false,
+                    status: "rejected"
                 });
 
-            saveCategories(
-                currentWord.id,
-                selectedCategories
-            );
+                await renderReviewScreen(
+                    document.getElementById("app")
+                );
 
-            nextWord();
+            } catch (error) {
 
-            renderReviewScreen(
-                document.getElementById("app")
-            );
+                console.error("Failed to reject word:", error);
+                setBusy(false);
+                alert("تعذر استبعاد الكلمة.");
+
+            }
+
+        });
+
+    document
+        .getElementById("skipButton")
+        .addEventListener("click", async () => {
+
+            setBusy(true);
+
+            try {
+
+                await skipCurrentWord();
+
+                await renderReviewScreen(
+                    document.getElementById("app")
+                );
+
+            } catch (error) {
+
+                console.error("Failed to skip word:", error);
+                setBusy(false);
+
+            }
+
+        });
+
+    document
+        .getElementById("previousButton")
+        .addEventListener("click", async () => {
+
+            setBusy(true);
+
+            try {
+
+                await goToPreviousWord();
+
+                await renderReviewScreen(
+                    document.getElementById("app")
+                );
+
+            } catch (error) {
+
+                console.error("Failed to go to previous word:", error);
+                setBusy(false);
+
+            }
 
         });
 

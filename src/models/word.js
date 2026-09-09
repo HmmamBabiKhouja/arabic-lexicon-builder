@@ -1,3 +1,5 @@
+import { normalizeArabic } from "../utils/arabicNormalizer.js";
+
 export class Word {
 
     constructor(id, word, frequency = 0) {
@@ -11,7 +13,7 @@ export class Word {
         this.currentWord = word;
 
         // Used for searching & duplicate detection
-        this.searchKey = word;
+        this.searchKey = normalizeArabic(word);
 
         this.frequency = frequency;
 

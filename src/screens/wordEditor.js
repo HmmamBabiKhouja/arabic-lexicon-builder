@@ -2,7 +2,8 @@ import {
     loadWord,
     saveWord,
     checkDuplicate,
-    mergeWords
+    mergeWords,
+    removeWord
 } from "../services/wordService.js";
 
 import { categories } from "../config/categories.js";
@@ -28,9 +29,7 @@ export async function renderWordEditor(
                 </h2>
 
                 <button id="backButton">
-
                     رجوع
-
                 </button>
 
             </section>
@@ -39,7 +38,9 @@ export async function renderWordEditor(
 
 
         document
-            .getElementById("backButton")
+            .getElementById(
+                "backButton"
+            )
             .addEventListener(
                 "click",
                 () => {
@@ -94,7 +95,7 @@ export async function renderWordEditor(
         <section class="welcome-card">
 
             <h2>
-                ✏️ محرر الكلمة
+                ✏️ تعديل الكلمة
             </h2>
 
 
@@ -187,28 +188,50 @@ export async function renderWordEditor(
             <textarea
                 id="notes"
                 rows="5"
-            >${word.notes}</textarea>
+            >${word.notes || ""}</textarea>
 
 
             <br><br>
 
 
-            <div class="button-group">
+            <!-- =================================
+                 Action buttons
+            ================================== -->
 
-                <button id="saveButton">
+            <div class="editor-actions">
 
-                    💾 حفظ
-
+                <button
+                    id="saveButton"
+                    type="button"
+                >
+                    حفظ
                 </button>
 
 
-                <button id="cancelButton">
-
+                <button
+                    id="cancelButton"
+                    type="button"
+                >
                     إلغاء
+                </button>
 
+
+                <button
+                    id="deleteButton"
+                    type="button"
+                >
+                    حذف الكلمة
                 </button>
 
             </div>
+
+
+            <br>
+
+
+            <div
+                id="duplicateSection"
+            ></div>
 
         </section>
 
@@ -225,24 +248,37 @@ export async function renderWordEditor(
         );
 
 
-    const warning =
-        document.getElementById(
-            "duplicateWarning"
-        );
-
-
     const saveButton =
         document.getElementById(
             "saveButton"
         );
 
 
-    // =====================================
-    // Duplicate
-    // =====================================
+    const cancelButton =
+        document.getElementById(
+            "cancelButton"
+        );
 
-    let currentDuplicate = null;
 
+    const deleteButton =
+        document.getElementById(
+            "deleteButton"
+        );
+
+
+    const duplicateWarning =
+        document.getElementById(
+            "duplicateWarning"
+        );
+
+
+    let currentDuplicate =
+        null;
+
+
+    // =====================================
+    // Duplicate check
+    // =====================================
 
     async function checkCurrentWord() {
 
@@ -250,103 +286,46 @@ export async function renderWordEditor(
             currentWordInput.value.trim();
 
 
-        currentDuplicate = null;
-
-        warning.innerHTML = "";
-
-
-        if (!currentWord) {
-
-            return;
-
-        }
-
-
-        const duplicate =
+        currentDuplicate =
             await checkDuplicate(
                 word.id,
                 currentWord
             );
 
 
-        if (!duplicate) {
+        if (!currentDuplicate) {
+
+            duplicateWarning.innerHTML =
+                "";
 
             return;
 
         }
 
 
-        currentDuplicate =
-            duplicate;
+        duplicateWarning.innerHTML = `
 
-
-        warning.innerHTML = `
-
-            <div
-                class="warning"
-                style="
-                    padding: 15px;
-                    border: 1px solid #d33;
-                    border-radius: 8px;
-                    margin-top: 10px;
-                "
-            >
-
-                ⚠️
+            <div class="warning-card">
 
                 <strong>
-                    هذه الكلمة موجودة بالفعل
+                    الكلمة موجودة مسبقًا
                 </strong>
 
-
-                <br><br>
-
-
-                <strong>
-                    الكلمة الموجودة:
-                </strong>
-
-                ${duplicate.currentWord}
-
-
-                <br>
-
-
-                <strong>
-                    الكلمة الأصلية:
-                </strong>
-
-                ${duplicate.originalWord}
-
-
-                <br>
-
-
-                <strong>
-                    المعرّف:
-                </strong>
-
-                ${duplicate.id}
-
-
-                <br><br>
-
+                <p>
+                    ${currentDuplicate.currentWord}
+                </p>
 
                 <button
                     id="mergeButton"
                     type="button"
                 >
-
-                    🔀 دمج مع الكلمة الموجودة
-
+                    دمج مع الكلمة الموجودة
                 </button>
 
-            `;
+            </div>
 
+        `;
 
-        // =================================
-        // Merge button
-        // =================================
 
         const mergeButton =
             document.getElementById(
@@ -367,15 +346,9 @@ export async function renderWordEditor(
 
                 const confirmed =
                     confirm(
-
                         `هل تريد دمج الكلمة الحالية مع:\n\n` +
-
                         `${currentDuplicate.currentWord}\n\n` +
-
-                        `سيتم الاحتفاظ بالكلمة الموجودة ` +
-
-                        `وحذف الكلمة الحالية بعد نجاح الدمج.`
-
+                        `ستبقى الكلمة الموجودة وسيتم حذف الكلمة الحالية بعد نجاح الدمج.`
                     );
 
 
@@ -386,7 +359,9 @@ export async function renderWordEditor(
                 }
 
 
-                mergeButton.disabled = true;
+                mergeButton.disabled =
+                    true;
+
 
                 mergeButton.textContent =
                     "جارٍ الدمج...";
@@ -417,10 +392,12 @@ export async function renderWordEditor(
                     );
 
 
-                    mergeButton.disabled = false;
+                    mergeButton.disabled =
+                        false;
+
 
                     mergeButton.textContent =
-                        "🔀 دمج مع الكلمة الموجودة";
+                        "دمج مع الكلمة الموجودة";
 
 
                     alert(
@@ -439,10 +416,28 @@ export async function renderWordEditor(
     // Check while typing
     // =====================================
 
+    let duplicateCheckTimer = null;
+
     currentWordInput.addEventListener(
         "input",
-        checkCurrentWord
+        () => {
+
+            clearTimeout(duplicateCheckTimer);
+
+            duplicateCheckTimer = setTimeout(
+                checkCurrentWord,
+                300
+            );
+
+        }
     );
+
+
+    // =====================================
+    // Initial duplicate check
+    // =====================================
+
+    await checkCurrentWord();
 
 
     // =====================================
@@ -463,6 +458,7 @@ export async function renderWordEditor(
                     "لا يمكن أن تكون الكلمة فارغة."
                 );
 
+
                 return;
 
             }
@@ -481,7 +477,6 @@ export async function renderWordEditor(
 
             if (duplicate) {
 
-                // Show duplicate warning again
                 currentDuplicate =
                     duplicate;
 
@@ -509,7 +504,9 @@ export async function renderWordEditor(
 
             word.notes =
                 document
-                    .getElementById("notes")
+                    .getElementById(
+                        "notes"
+                    )
                     .value
                     .trim();
 
@@ -521,18 +518,22 @@ export async function renderWordEditor(
                 .querySelectorAll(
                     ".categories input:checked"
                 )
-                .forEach(checkbox => {
+                .forEach(
+                    checkbox => {
 
-                    word.categories.push(
-                        checkbox.value
-                    );
+                        word.categories.push(
+                            checkbox.value
+                        );
 
-                });
+                    }
+                );
 
 
             try {
 
-                await saveWord(word);
+                await saveWord(
+                    word
+                );
 
 
                 alert(
@@ -562,18 +563,106 @@ export async function renderWordEditor(
 
 
     // =====================================
+    // Delete
+    // =====================================
+
+    deleteButton.addEventListener(
+        "click",
+        async () => {
+
+            const confirmed =
+                confirm(
+                    `هل أنت متأكد من حذف الكلمة:\n\n` +
+                    `${word.currentWord}\n\n` +
+                    `سيتم حذف الكلمة ومراجعتها محليًا، ` +
+                    `وسيتم مزامنة الحذف مع Firestore.`
+                );
+
+
+            if (!confirmed) {
+
+                return;
+
+            }
+
+
+            deleteButton.disabled =
+                true;
+
+
+            saveButton.disabled =
+                true;
+
+
+            cancelButton.disabled =
+                true;
+
+
+            deleteButton.textContent =
+                "جارٍ الحذف...";
+
+
+            try {
+
+                await removeWord(
+                    word.id
+                );
+
+
+                alert(
+                    "تم حذف الكلمة بنجاح."
+                );
+
+
+                window.location.hash =
+                    "#/search";
+
+
+            } catch (error) {
+
+                console.error(
+                    "Delete failed:",
+                    error
+                );
+
+
+                deleteButton.disabled =
+                    false;
+
+
+                saveButton.disabled =
+                    false;
+
+
+                cancelButton.disabled =
+                    false;
+
+
+                deleteButton.textContent =
+                    "حذف الكلمة";
+
+
+                alert(
+                    "حدث خطأ أثناء حذف الكلمة."
+                );
+
+            }
+
+        }
+    );
+
+
+    // =====================================
     // Cancel
     // =====================================
 
-    document
-        .getElementById("cancelButton")
-        .addEventListener(
-            "click",
-            () => {
+    cancelButton.addEventListener(
+        "click",
+        () => {
 
-                history.back();
+            history.back();
 
-            }
-        );
+        }
+    );
 
 }

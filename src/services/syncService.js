@@ -7,7 +7,8 @@ import {
     collection,
     doc,
     getDocs,
-    setDoc
+    setDoc,
+    deleteDoc
 } from "firebase/firestore";
 
 import {
@@ -17,7 +18,11 @@ import {
     getWords,
     saveWords,
     getReview,
-    saveReview
+    saveReview,
+    deleteWord,
+    deleteReview,
+    saveTombstone,
+    getTombstones
 } from "../database/db.js";
 
 import {
@@ -27,28 +32,15 @@ import {
 
 const SYNC_STATUS_KEY = "syncStatus";
 
-
-/**
- * Sync states:
- *
- * idle      → nothing waiting to sync
- * pending   → local changes waiting to sync
- * syncing   → synchronization in progress
- * error     → synchronization failed
- */
-
 let status = "idle";
 
 const listeners = new Set();
 
 
 /* ==========================================================
-   Sync status
+   SYNC STATUS
 ========================================================== */
 
-/**
- * Get current sync status.
- */
 export function getSyncStatus() {
 
     return status;
@@ -56,12 +48,12 @@ export function getSyncStatus() {
 }
 
 
-/**
- * Change sync status.
- */
-export function setSyncStatus(newStatus) {
+export function setSyncStatus(
+    newStatus
+) {
 
-    status = newStatus;
+    status =
+        newStatus;
 
     localStorage.setItem(
         SYNC_STATUS_KEY,
@@ -73,103 +65,99 @@ export function setSyncStatus(newStatus) {
 }
 
 
-/**
- * Subscribe to sync status changes.
- *
- * Returns an unsubscribe function.
- */
-export function onSyncStatusChange(listener) {
+export function onSyncStatusChange(
+    listener
+) {
 
-    listeners.add(listener);
+    listeners.add(
+        listener
+    );
 
     return () => {
 
-        listeners.delete(listener);
+        listeners.delete(
+            listener
+        );
 
     };
 
 }
 
 
-/**
- * Notify all status listeners.
- */
 function notifyListeners() {
 
-    listeners.forEach(listener => {
+    listeners.forEach(
+        listener => {
 
-        try {
+            try {
 
-            listener(status);
+                listener(
+                    status
+                );
 
-        } catch (error) {
+            } catch (error) {
 
-            console.error(
-                "Sync status listener error:",
-                error
-            );
+                console.error(
+                    "Sync status listener error:",
+                    error
+                );
+
+            }
 
         }
-
-    });
+    );
 
 }
 
 
-/* ==========================================================
-   Status helpers
-========================================================== */
-
-/**
- * Mark that local data has changed.
- */
 export function markSyncPending() {
 
-    setSyncStatus("pending");
+    setSyncStatus(
+        "pending"
+    );
 
 }
 
 
-/**
- * Mark synchronization as started.
- */
 export function markSyncing() {
 
-    setSyncStatus("syncing");
+    setSyncStatus(
+        "syncing"
+    );
 
 }
 
 
-/**
- * Mark synchronization as successfully completed.
- */
 export function markSyncComplete() {
 
-    setSyncStatus("idle");
+    setSyncStatus(
+        "idle"
+    );
 
 }
 
 
-/**
- * Mark synchronization as failed.
- */
 export function markSyncError() {
 
-    setSyncStatus("error");
+    setSyncStatus(
+        "error"
+    );
 
 }
 
 
 /* ==========================================================
-   Queue
+   WORD SYNC QUEUE
 ========================================================== */
 
-/**
- * Add a word to the persistent sync queue.
- */
-export async function queueWordSync(word) {
+export async function queueWordSync(
+    word
+) {
 
-    if (!word || !word.id) {
+    if (
+        !word ||
+        !word.id
+    ) {
 
         throw new Error(
             "Cannot queue an invalid word."
@@ -180,11 +168,16 @@ export async function queueWordSync(word) {
 
     await addToSyncQueue({
 
-        id: `word:${word.id}`,
+        id:
+            `word:${word.id}`,
 
-        type: "word",
+        type:
+            "word",
 
-        recordId: String(word.id),
+        recordId:
+            String(
+                word.id
+            ),
 
         updatedAt:
             word.updatedAt instanceof Date
@@ -201,55 +194,14 @@ export async function queueWordSync(word) {
 
 }
 
-/**
- * Add a review to the persistent sync queue.
- */
-export async function queueReviewSync(review) {
-
-    if (!review || !review.wordId) {
-
-        throw new Error(
-            "Cannot queue an invalid review."
-        );
-
-    }
-
-
-    await addToSyncQueue({
-
-        id: `review:${review.wordId}`,
-
-        type: "review",
-
-        recordId: String(review.wordId),
-
-        updatedAt:
-            review.updatedAt instanceof Date
-                ? review.updatedAt.toISOString()
-                : review.updatedAt,
-
-        createdAt:
-            new Date().toISOString()
-
-    });
-
-
-    markSyncPending();
-
-}
-
 
 /* ==========================================================
-   Firestore upload
+   WORD CLOUD SYNC
 ========================================================== */
 
-/**
- * Synchronize one word with Firestore.
- *
- * IndexedDB remains the local database.
- * Firestore stores the cloud copy.
- */
-export async function syncWord(word) {
+export async function syncWord(
+    word
+) {
 
     if (!word) {
 
@@ -278,7 +230,9 @@ export async function syncWord(word) {
             doc(
                 db,
                 "words",
-                String(word.id)
+                String(
+                    word.id
+                )
             );
 
 
@@ -296,6 +250,7 @@ export async function syncWord(word) {
                     word.createdAt instanceof Date
                         ? word.createdAt.toISOString()
                         : word.createdAt
+
             },
             {
                 merge: true
@@ -318,6 +273,672 @@ export async function syncWord(word) {
             error
         );
 
+        markSyncError();
+
+        throw error;
+
+    }
+
+}
+
+
+/* ==========================================================
+   WORD DELETION QUEUE
+========================================================== */
+
+export async function queueWordDeletion(
+    tombstone
+) {
+
+    if (
+        !tombstone ||
+        !tombstone.recordId
+    ) {
+
+        throw new Error(
+            "Cannot queue an invalid word deletion."
+        );
+
+    }
+
+
+    await addToSyncQueue({
+
+        id:
+            `wordDelete:${tombstone.recordId}`,
+
+        type:
+            "wordDelete",
+
+        recordId:
+            String(
+                tombstone.recordId
+            ),
+
+        deletedAt:
+            tombstone.deletedAt,
+
+        createdAt:
+            new Date().toISOString()
+
+    });
+
+
+    markSyncPending();
+
+}
+
+
+/* ==========================================================
+   SYNCHRONIZE WORD DELETION
+========================================================== */
+
+export async function syncWordDeletion(
+    tombstone
+) {
+
+    if (!tombstone) {
+
+        throw new Error(
+            "Cannot synchronize an empty tombstone."
+        );
+
+    }
+
+
+    if (
+        !tombstone.recordId
+    ) {
+
+        throw new Error(
+            "Cannot synchronize a tombstone without a recordId."
+        );
+
+    }
+
+
+    try {
+
+        markSyncing();
+
+
+        const wordId =
+            String(
+                tombstone.recordId
+            );
+
+
+        /* --------------------------------------------------
+           Delete word from Firestore
+        -------------------------------------------------- */
+
+        const wordRef =
+            doc(
+                db,
+                "words",
+                wordId
+            );
+
+
+        await deleteDoc(
+            wordRef
+        );
+
+
+        /* --------------------------------------------------
+           Delete associated review
+        -------------------------------------------------- */
+
+        const reviewRef =
+            doc(
+                db,
+                "reviews",
+                wordId
+            );
+
+
+        await deleteDoc(
+            reviewRef
+        );
+
+
+        /* --------------------------------------------------
+           Store tombstone in Firestore
+        -------------------------------------------------- */
+
+        const tombstoneRef =
+            doc(
+                db,
+                "tombstones",
+                `word:${wordId}`
+            );
+
+
+        await setDoc(
+            tombstoneRef,
+            {
+
+                id:
+                    `word:${wordId}`,
+
+                type:
+                    "word",
+
+                recordId:
+                    wordId,
+
+                deletedAt:
+                    tombstone.deletedAt,
+
+                createdAt:
+                    tombstone.createdAt ||
+                    new Date().toISOString()
+
+            }
+        );
+
+
+        console.log(
+            "Word deletion synchronized with Firestore:",
+            wordId
+        );
+
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Firestore word deletion sync failed:",
+            error
+        );
+
+        markSyncError();
+
+        throw error;
+
+    }
+
+}
+
+
+/* ==========================================================
+   PROCESS LOCAL SYNC QUEUE
+========================================================== */
+
+export async function processSyncQueue() {
+
+    const queue =
+        await getSyncQueue();
+
+
+    if (
+        !queue.length
+    ) {
+
+        markSyncComplete();
+
+        console.log(
+            "SYNC QUEUE: nothing to process."
+        );
+
+        return;
+
+    }
+
+
+    console.log(
+        `SYNC QUEUE: processing ${queue.length} item(s).`
+    );
+
+
+    const words =
+        await getWords();
+
+
+    const wordsById =
+        new Map(
+            words.map(
+                word => [
+                    String(
+                        word.id
+                    ),
+                    word
+                ]
+            )
+        );
+
+
+    let failed =
+        false;
+
+
+    for (
+        const item
+        of queue
+    ) {
+
+        try {
+
+            /* ==============================================
+               WORD UPDATE
+            ============================================== */
+
+            if (
+                item.type === "word"
+            ) {
+
+                const word =
+                    wordsById.get(
+                        String(
+                            item.recordId
+                        )
+                    );
+
+
+                if (!word) {
+
+                    console.warn(
+                        "SYNC QUEUE: word no longer exists locally:",
+                        item.recordId
+                    );
+
+
+                    await removeFromSyncQueue(
+                        item.id
+                    );
+
+
+                    continue;
+
+                }
+
+
+                await syncWord(
+                    word
+                );
+
+
+                await removeFromSyncQueue(
+                    item.id
+                );
+
+
+                console.log(
+                    "SYNC QUEUE: completed:",
+                    item.id
+                );
+
+
+                continue;
+
+            }
+
+
+            /* ==============================================
+               WORD DELETION
+            ============================================== */
+
+            if (
+                item.type === "wordDelete"
+            ) {
+
+                const tombstone =
+                    {
+
+                        id:
+                            `word:${item.recordId}`,
+
+                        type:
+                            "word",
+
+                        recordId:
+                            String(
+                                item.recordId
+                            ),
+
+                        deletedAt:
+                            item.deletedAt,
+
+                        createdAt:
+                            item.createdAt
+
+                    };
+
+
+                await syncWordDeletion(
+                    tombstone
+                );
+
+
+                await removeFromSyncQueue(
+                    item.id
+                );
+
+
+                console.log(
+                    "SYNC QUEUE: completed word deletion:",
+                    item.id
+                );
+
+
+                continue;
+
+            }
+
+
+            /* ==============================================
+               REVIEW UPDATE
+            ============================================== */
+
+            if (
+                item.type === "review"
+            ) {
+
+                const review =
+                    await getReview(
+                        String(
+                            item.recordId
+                        )
+                    );
+
+
+                if (!review) {
+
+                    console.warn(
+                        "SYNC QUEUE: review no longer exists locally:",
+                        item.recordId
+                    );
+
+
+                    await removeFromSyncQueue(
+                        item.id
+                    );
+
+
+                    continue;
+
+                }
+
+
+                await syncReview(
+                    review
+                );
+
+
+                await removeFromSyncQueue(
+                    item.id
+                );
+
+
+                console.log(
+                    "SYNC QUEUE: completed:",
+                    item.id
+                );
+
+
+                continue;
+
+            }
+
+
+            console.warn(
+                "SYNC QUEUE: unknown item type:",
+                item
+            );
+
+        } catch (error) {
+
+            failed =
+                true;
+
+
+            console.error(
+                "SYNC QUEUE: item failed:",
+                item.id,
+                error
+            );
+
+        }
+
+    }
+
+
+    if (
+        failed
+    ) {
+
+        markSyncError();
+
+    } else {
+
+        markSyncComplete();
+
+    }
+
+}
+
+
+/* ==========================================================
+   PULL WORDS FROM FIRESTORE
+========================================================== */
+
+export async function pullWordsFromFirestore() {
+
+    try {
+
+        markSyncing();
+
+
+        console.log(
+            "SYNC PULL: downloading words from Firestore..."
+        );
+
+
+        const snapshot =
+            await getDocs(
+                collection(
+                    db,
+                    "words"
+                )
+            );
+
+
+        const localWords =
+            await getWords();
+
+
+        const localById =
+            new Map(
+                localWords.map(
+                    word => [
+                        String(
+                            word.id
+                        ),
+                        word
+                    ]
+                )
+            );
+
+
+        let imported = 0;
+
+        let updated = 0;
+
+        let skipped = 0;
+
+
+        for (
+            const documentSnapshot
+            of snapshot.docs
+        ) {
+
+            const remoteWord =
+                documentSnapshot.data();
+
+
+            const remoteId =
+                String(
+                    remoteWord.id ??
+                    documentSnapshot.id
+                );
+
+
+            const localWord =
+                localById.get(
+                    remoteId
+                );
+
+
+            /* ----------------------------------------------
+               Word does not exist locally
+            ---------------------------------------------- */
+
+            if (
+                !localWord
+            ) {
+
+                await saveWords([
+                    {
+
+                        ...remoteWord,
+
+                        id:
+                            remoteId,
+
+                        createdAt:
+                            remoteWord.createdAt
+                                ? new Date(
+                                    remoteWord.createdAt
+                                )
+                                : new Date(),
+
+                        updatedAt:
+                            remoteWord.updatedAt
+                                ? new Date(
+                                    remoteWord.updatedAt
+                                )
+                                : new Date()
+
+                    }
+                ]);
+
+
+                imported++;
+
+                continue;
+
+            }
+
+
+            /* ----------------------------------------------
+               Compare timestamps
+            ---------------------------------------------- */
+
+            const localUpdatedAt =
+                new Date(
+                    localWord.updatedAt
+                ).getTime();
+
+
+            const remoteUpdatedAt =
+                new Date(
+                    remoteWord.updatedAt
+                ).getTime();
+
+
+            if (
+                Number.isNaN(
+                    remoteUpdatedAt
+                )
+            ) {
+
+                console.warn(
+                    "SYNC PULL: invalid remote updatedAt:",
+                    remoteId
+                );
+
+
+                skipped++;
+
+                continue;
+
+            }
+
+
+            /* ----------------------------------------------
+               Remote is newer
+            ---------------------------------------------- */
+
+            if (
+                remoteUpdatedAt >
+                localUpdatedAt
+            ) {
+
+                await saveWords([
+                    {
+
+                        ...remoteWord,
+
+                        id:
+                            localWord.id,
+
+                        createdAt:
+                            remoteWord.createdAt
+                                ? new Date(
+                                    remoteWord.createdAt
+                                )
+                                : localWord.createdAt,
+
+                        updatedAt:
+                            remoteWord.updatedAt
+                                ? new Date(
+                                    remoteWord.updatedAt
+                                )
+                                : localWord.updatedAt
+
+                    }
+                ]);
+
+
+                updated++;
+
+                continue;
+
+            }
+
+
+            skipped++;
+
+        }
+
+
+        markSyncComplete();
+
+
+        console.log(
+            "SYNC PULL COMPLETE:",
+            {
+                imported,
+                updated,
+                skipped
+            }
+        );
+
+
+        return {
+            imported,
+            updated,
+            skipped
+        };
+
+    } catch (error) {
+
+        console.error(
+            "SYNC PULL FAILED:",
+            error
+        );
+
 
         markSyncError();
 
@@ -328,10 +949,63 @@ export async function syncWord(word) {
 
 }
 
-/**
- * Synchronize one review with Firestore.
- */
-export async function syncReview(review) {
+
+/* ==========================================================
+   REVIEW QUEUE
+========================================================== */
+
+export async function queueReviewSync(
+    review
+) {
+
+    if (
+        !review ||
+        !review.wordId
+    ) {
+
+        throw new Error(
+            "Cannot queue an invalid review."
+        );
+
+    }
+
+
+    await addToSyncQueue({
+
+        id:
+            `review:${review.wordId}`,
+
+        type:
+            "review",
+
+        recordId:
+            String(
+                review.wordId
+            ),
+
+        updatedAt:
+            review.updatedAt instanceof Date
+                ? review.updatedAt.toISOString()
+                : review.updatedAt,
+
+        createdAt:
+            new Date().toISOString()
+
+    });
+
+
+    markSyncPending();
+
+}
+
+
+/* ==========================================================
+   REVIEW CLOUD SYNC
+========================================================== */
+
+export async function syncReview(
+    review
+) {
 
     if (!review) {
 
@@ -342,7 +1016,9 @@ export async function syncReview(review) {
     }
 
 
-    if (!review.wordId) {
+    if (
+        !review.wordId
+    ) {
 
         throw new Error(
             "Cannot synchronize a review without a wordId."
@@ -360,19 +1036,23 @@ export async function syncReview(review) {
             doc(
                 db,
                 "reviews",
-                String(review.wordId)
+                String(
+                    review.wordId
+                )
             );
 
 
         await setDoc(
             reviewRef,
             {
+
                 ...review,
 
                 updatedAt:
                     review.updatedAt instanceof Date
                         ? review.updatedAt.toISOString()
                         : review.updatedAt
+
             },
             {
                 merge: true
@@ -407,252 +1087,10 @@ export async function syncReview(review) {
 
 
 /* ==========================================================
-   Queue processor
+   PULL REVIEWS FROM FIRESTORE
 ========================================================== */
 
-/**
- * Process all pending synchronization items.
- *
- * The latest local word is read from IndexedDB
- * before uploading.
- */
-export async function processSyncQueue() {
-
-    const queue =
-        await getSyncQueue();
-
-
-    if (!queue.length) {
-
-        markSyncComplete();
-
-        console.log(
-            "SYNC QUEUE: nothing to process."
-        );
-
-        return;
-
-    }
-
-
-    console.log(
-        `SYNC QUEUE: processing ${queue.length} item(s).`
-    );
-
-
-    const words =
-        await getWords();
-
-
-    const wordsById =
-        new Map(
-            words.map(word => [
-                String(word.id),
-                word
-            ])
-        );
-
-
-    let failed = false;
-
-
-    for (const item of queue) {
-
-        try {
-
-    if (item.type === "word") {
-
-        const word =
-            wordsById.get(
-                String(item.recordId)
-            );
-
-
-        if (!word) {
-
-            console.warn(
-                "SYNC QUEUE: word no longer exists locally:",
-                item.recordId
-            );
-
-
-            await removeFromSyncQueue(
-                item.id
-            );
-
-
-            continue;
-
-        }
-
-
-        await syncWord(
-            word
-        );
-
-
-        await removeFromSyncQueue(
-            item.id
-        );
-
-
-        console.log(
-            "SYNC QUEUE: completed:",
-            item.id
-        );
-
-
-        continue;
-
-    }
-
-
-    if (item.type === "review") {
-
-    const review =
-        await getReview(
-            String(item.recordId)
-        );
-
-
-    if (!review) {
-
-        console.warn(
-            "SYNC QUEUE: review no longer exists locally:",
-            item.recordId
-        );
-
-
-        await removeFromSyncQueue(
-            item.id
-        );
-
-
-        continue;
-
-    }
-
-
-    await syncReview(
-        review
-    );
-
-
-    await removeFromSyncQueue(
-        item.id
-    );
-
-
-    console.log(
-        "SYNC QUEUE: completed:",
-        item.id
-    );
-
-
-    continue;
-
-}
-
-
-console.warn(
-    "SYNC QUEUE: unknown item type:",
-    item
-);
-
-
-            const word =
-                wordsById.get(
-                    String(item.recordId)
-                );
-
-
-            if (!word) {
-
-                console.warn(
-                    "SYNC QUEUE: word no longer exists locally:",
-                    item.recordId
-                );
-
-
-                await removeFromSyncQueue(
-                    item.id
-                );
-
-
-                continue;
-
-            }
-
-
-            await syncWord(
-                word
-            );
-
-
-            await removeFromSyncQueue(
-                item.id
-            );
-
-
-            console.log(
-                "SYNC QUEUE: completed:",
-                item.id
-            );
-
-
-        } catch (error) {
-
-            failed = true;
-
-
-            console.error(
-                "SYNC QUEUE: item failed:",
-                item.id,
-                error
-            );
-
-            /*
-             * Keep the queue item so it can
-             * be retried later.
-             */
-
-        }
-
-    }
-
-
-    if (failed) {
-
-        markSyncError();
-
-    } else {
-
-        markSyncComplete();
-
-    }
-
-}
-
-
-/* ==========================================================
-   Firestore → IndexedDB
-========================================================== */
-
-/**
- * Pull words from Firestore into IndexedDB.
- *
- * Rules:
- *
- * 1. Missing local word
- *    → create locally
- *
- * 2. Firestore newer
- *    → update local copy
- *
- * 3. Local newer or equal
- *    → keep local copy
- */
-export async function pullWordsFromFirestore() {
+export async function pullReviewsFromFirestore() {
 
     try {
 
@@ -660,7 +1098,7 @@ export async function pullWordsFromFirestore() {
 
 
         console.log(
-            "SYNC PULL: downloading words from Firestore..."
+            "SYNC PULL: downloading reviews from Firestore..."
         );
 
 
@@ -668,26 +1106,15 @@ export async function pullWordsFromFirestore() {
             await getDocs(
                 collection(
                     db,
-                    "words"
+                    "reviews"
                 )
             );
 
 
-        const localWords =
-            await getWords();
-
-
-        const localById =
-            new Map(
-                localWords.map(word => [
-                    String(word.id),
-                    word
-                ])
-            );
-
-
         let imported = 0;
+
         let updated = 0;
+
         let skipped = 0;
 
 
@@ -696,50 +1123,46 @@ export async function pullWordsFromFirestore() {
             of snapshot.docs
         ) {
 
-            const remoteWord =
+            const remoteReview =
                 documentSnapshot.data();
 
 
-            const remoteId =
+            const remoteWordId =
                 String(
-                    remoteWord.id ??
+                    remoteReview.wordId ??
                     documentSnapshot.id
                 );
 
 
-            const localWord =
-                localById.get(
-                    remoteId
+            const localReview =
+                await getReview(
+                    remoteWordId
                 );
 
 
-            /* ---------------------------------
-               Word does not exist locally
-            --------------------------------- */
+            /* ----------------------------------------------
+               Review does not exist locally
+            ---------------------------------------------- */
 
-            if (!localWord) {
+            if (
+                !localReview
+            ) {
 
-                await saveWords([
-                    {
-                        ...remoteWord,
+                await saveReview({
 
-                        id: remoteId,
+                    ...remoteReview,
 
-                        createdAt:
-                            remoteWord.createdAt
-                                ? new Date(
-                                    remoteWord.createdAt
-                                )
-                                : new Date(),
+                    wordId:
+                        remoteWordId,
 
-                        updatedAt:
-                            remoteWord.updatedAt
-                                ? new Date(
-                                    remoteWord.updatedAt
-                                )
-                                : new Date()
-                    }
-                ]);
+                    updatedAt:
+                        remoteReview.updatedAt
+                            ? new Date(
+                                remoteReview.updatedAt
+                            )
+                            : new Date()
+
+                });
 
 
                 imported++;
@@ -749,19 +1172,19 @@ export async function pullWordsFromFirestore() {
             }
 
 
-            /* ---------------------------------
+            /* ----------------------------------------------
                Compare timestamps
-            --------------------------------- */
+            ---------------------------------------------- */
 
             const localUpdatedAt =
                 new Date(
-                    localWord.updatedAt
+                    localReview.updatedAt
                 ).getTime();
 
 
             const remoteUpdatedAt =
                 new Date(
-                    remoteWord.updatedAt
+                    remoteReview.updatedAt
                 ).getTime();
 
 
@@ -772,8 +1195,8 @@ export async function pullWordsFromFirestore() {
             ) {
 
                 console.warn(
-                    "SYNC PULL: invalid remote updatedAt:",
-                    remoteId
+                    "SYNC PULL: invalid remote review updatedAt:",
+                    remoteWordId
                 );
 
 
@@ -784,40 +1207,30 @@ export async function pullWordsFromFirestore() {
             }
 
 
-            /* ---------------------------------
-               Firestore is newer
-            --------------------------------- */
+            /* ----------------------------------------------
+               Remote review is newer
+            ---------------------------------------------- */
 
             if (
                 remoteUpdatedAt >
                 localUpdatedAt
             ) {
 
-                await saveWords([
-                    {
-                        ...remoteWord,
+                await saveReview({
 
-                        /*
-                         * Preserve the exact local
-                         * IndexedDB key.
-                         */
-                        id: localWord.id,
+                    ...remoteReview,
 
-                        createdAt:
-                            remoteWord.createdAt
-                                ? new Date(
-                                    remoteWord.createdAt
-                                )
-                                : localWord.createdAt,
+                    wordId:
+                        localReview.wordId,
 
-                        updatedAt:
-                            remoteWord.updatedAt
-                                ? new Date(
-                                    remoteWord.updatedAt
-                                )
-                                : localWord.updatedAt
-                    }
-                ]);
+                    updatedAt:
+                        remoteReview.updatedAt
+                            ? new Date(
+                                remoteReview.updatedAt
+                            )
+                            : localReview.updatedAt
+
+                });
 
 
                 updated++;
@@ -826,10 +1239,6 @@ export async function pullWordsFromFirestore() {
 
             }
 
-
-            /* ---------------------------------
-               Local is newer or equal
-            --------------------------------- */
 
             skipped++;
 
@@ -840,7 +1249,7 @@ export async function pullWordsFromFirestore() {
 
 
         console.log(
-            "SYNC PULL COMPLETE:",
+            "SYNC REVIEW PULL COMPLETE:",
             {
                 imported,
                 updated,
@@ -855,11 +1264,10 @@ export async function pullWordsFromFirestore() {
             skipped
         };
 
-
     } catch (error) {
 
         console.error(
-            "SYNC PULL FAILED:",
+            "SYNC REVIEW PULL FAILED:",
             error
         );
 
@@ -875,12 +1283,280 @@ export async function pullWordsFromFirestore() {
 
 
 /* ==========================================================
-   Restore saved status
+   PULL TOMBSTONES FROM FIRESTORE
 ========================================================== */
 
-/**
- * Restore saved status when the app starts.
- */
+export async function pullTombstonesFromFirestore() {
+
+    try {
+
+        markSyncing();
+
+
+        console.log(
+            "SYNC TOMBSTONES: downloading deletions from Firestore..."
+        );
+
+
+        const snapshot =
+            await getDocs(
+                collection(
+                    db,
+                    "tombstones"
+                )
+            );
+
+
+        let applied = 0;
+
+        let skipped = 0;
+
+
+        for (
+            const documentSnapshot
+            of snapshot.docs
+        ) {
+
+            const remoteTombstone =
+                documentSnapshot.data();
+
+
+            if (
+                remoteTombstone.type !== "word"
+            ) {
+
+                skipped++;
+
+                continue;
+
+            }
+
+
+            const wordId =
+                String(
+                    remoteTombstone.recordId ??
+                    ""
+                );
+
+
+            if (!wordId) {
+
+                skipped++;
+
+                continue;
+
+            }
+
+
+            const localWords =
+                await getWords();
+
+
+            const localWord =
+                localWords.find(
+                    word =>
+                        String(
+                            word.id
+                        ) === wordId
+                );
+
+
+            const localReview =
+                await getReview(
+                    wordId
+                );
+
+
+            const remoteDeletedAt =
+                new Date(
+                    remoteTombstone.deletedAt
+                ).getTime();
+
+
+            if (
+                Number.isNaN(
+                    remoteDeletedAt
+                )
+            ) {
+
+                console.warn(
+                    "SYNC TOMBSTONES: invalid deletion timestamp:",
+                    wordId
+                );
+
+
+                skipped++;
+
+                continue;
+
+            }
+
+
+            /* ----------------------------------------------
+               Delete if there is no local word/review,
+               or the remote deletion is newer.
+            ---------------------------------------------- */
+
+            let shouldDelete =
+                false;
+
+
+            if (
+                localWord
+            ) {
+
+                const localUpdatedAt =
+                    new Date(
+                        localWord.updatedAt
+                    ).getTime();
+
+
+                if (
+                    Number.isNaN(
+                        localUpdatedAt
+                    ) ||
+                    remoteDeletedAt >=
+                    localUpdatedAt
+                ) {
+
+                    shouldDelete =
+                        true;
+
+                }
+
+            } else if (
+                localReview
+            ) {
+
+                const localReviewUpdatedAt =
+                    new Date(
+                        localReview.updatedAt
+                    ).getTime();
+
+
+                if (
+                    Number.isNaN(
+                        localReviewUpdatedAt
+                    ) ||
+                    remoteDeletedAt >=
+                    localReviewUpdatedAt
+                ) {
+
+                    shouldDelete =
+                        true;
+
+                }
+
+            }
+
+
+            if (
+                shouldDelete
+            ) {
+
+                if (
+                    localWord
+                ) {
+
+                    await deleteWord(
+                        wordId
+                    );
+
+                }
+
+
+                if (
+                    localReview
+                ) {
+
+                    await deleteReview(
+                        wordId
+                    );
+
+                }
+
+
+                applied++;
+
+            }
+
+
+            /* ----------------------------------------------
+               Keep tombstone locally
+            ---------------------------------------------- */
+
+            await saveTombstone({
+
+                id:
+                    `word:${wordId}`,
+
+                type:
+                    "word",
+
+                recordId:
+                    wordId,
+
+                deletedAt:
+                    remoteTombstone.deletedAt,
+
+                createdAt:
+                    remoteTombstone.createdAt
+
+            });
+
+        }
+
+
+        markSyncComplete();
+
+
+        console.log(
+            "SYNC TOMBSTONES COMPLETE:",
+            {
+                applied,
+                skipped
+            }
+        );
+
+
+        return {
+            applied,
+            skipped
+        };
+
+    } catch (error) {
+
+        console.error(
+            "SYNC TOMBSTONES FAILED:",
+            error
+        );
+
+
+        markSyncError();
+
+
+        throw error;
+
+    }
+
+}
+
+
+/* ==========================================================
+   LOCAL TOMBSTONE INFORMATION
+========================================================== */
+
+export async function getLocalTombstones() {
+
+    return await getTombstones();
+
+}
+
+
+/* ==========================================================
+   INITIALIZE SYNC STATUS
+========================================================== */
+
 export function initializeSyncStatus() {
 
     const savedStatus =
@@ -895,11 +1571,13 @@ export function initializeSyncStatus() {
         savedStatus === "error"
     ) {
 
-        status = savedStatus;
+        status =
+            savedStatus;
 
     } else {
 
-        status = "idle";
+        status =
+            "idle";
 
     }
 

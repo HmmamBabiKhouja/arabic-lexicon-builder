@@ -1,13 +1,14 @@
 import { runMigrations } from "./migrations/migrationManager.js";
 
 const DB_NAME = "arabic-review-db";
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 const STORES = {
     WORDS: "words",
     REVIEWS: "reviews",
     SETTINGS: "settings",
-    SYNC_QUEUE: "syncQueue"
+    SYNC_QUEUE: "syncQueue",
+    TOMBSTONES: "tombstones"
 };
 
 let db = null;
@@ -121,6 +122,7 @@ export async function openDatabase() {
 
             }
 
+
             // =====================================
             // SYNC QUEUE STORE
             // =====================================
@@ -136,6 +138,39 @@ export async function openDatabase() {
                     {
                         keyPath: "id"
                     }
+                );
+
+            }
+
+
+            // =====================================
+            // TOMBSTONES STORE
+            // =====================================
+
+            if (
+                !db.objectStoreNames.contains(
+                    STORES.TOMBSTONES
+                )
+            ) {
+
+                db.createObjectStore(
+                    STORES.TOMBSTONES,
+                    {
+                        keyPath: "id"
+                    }
+                );
+
+            }
+
+
+            // =====================================
+            // MIGRATION: VERSION 8
+            // =====================================
+
+            if (event.oldVersion < 8) {
+
+                console.log(
+                    "Migration 8: adding tombstones store..."
                 );
 
             }
@@ -585,13 +620,33 @@ export async function getSetting(key) {
 
 }
 
+
 /**
- * Find one word by its searchKey using the IndexedDB index.
+ * Read one word by primary key.
+ * Accepts numeric ids stored as numbers even when
+ * the caller passes a string (for example from a route).
  */
-export async function getWordBySearchKey(searchKey) {
+export async function getWordById(id) {
 
     const database =
         await openDatabase();
+
+
+    const keys = [];
+
+    keys.push(id);
+
+    const numericId = Number(id);
+
+    if (
+        !Number.isNaN(numericId) &&
+        numericId !== id
+    ) {
+
+        keys.push(numericId);
+
+    }
+
 
     return new Promise((resolve, reject) => {
 
@@ -601,16 +656,88 @@ export async function getWordBySearchKey(searchKey) {
                 "readonly"
             );
 
+
         const store =
             tx.objectStore(
                 STORES.WORDS
             );
 
+
+        const tryKey = (index) => {
+
+            if (index >= keys.length) {
+
+                resolve(null);
+                return;
+
+            }
+
+
+            const request =
+                store.get(keys[index]);
+
+
+            request.onsuccess = () => {
+
+                if (request.result) {
+
+                    resolve(request.result);
+                    return;
+
+                }
+
+                tryKey(index + 1);
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(request.error);
+
+            };
+
+        };
+
+
+        tryKey(0);
+
+    });
+
+}
+
+
+/**
+ * Find one word by its searchKey using the IndexedDB index.
+ */
+export async function getWordBySearchKey(searchKey) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise((resolve, reject) => {
+
+        const tx =
+            database.transaction(
+                STORES.WORDS,
+                "readonly"
+            );
+
+
+        const store =
+            tx.objectStore(
+                STORES.WORDS
+            );
+
+
         const index =
             store.index("searchKey");
 
+
         const request =
             index.get(searchKey);
+
 
         request.onsuccess = () => {
 
@@ -619,6 +746,7 @@ export async function getWordBySearchKey(searchKey) {
             );
 
         };
+
 
         request.onerror = () => {
 
@@ -630,12 +758,53 @@ export async function getWordBySearchKey(searchKey) {
 
 }
 
+
 /**
  * Get all words sharing the same searchKey.
  */
 export async function getWordsBySearchKey(searchKey) {
 
-    return await getWordsBySearchKey(searchKey);
+    const database =
+        await openDatabase();
+
+
+    return new Promise((resolve, reject) => {
+
+        const tx =
+            database.transaction(
+                STORES.WORDS,
+                "readonly"
+            );
+
+
+        const store =
+            tx.objectStore(
+                STORES.WORDS
+            );
+
+
+        const index =
+            store.index("searchKey");
+
+
+        const request =
+            index.getAll(searchKey);
+
+
+        request.onsuccess = () => {
+
+            resolve(request.result ?? []);
+
+        };
+
+
+        request.onerror = () => {
+
+            reject(request.error);
+
+        };
+
+    });
 
 }
 
@@ -646,7 +815,6 @@ export async function getWordsBySearchKey(searchKey) {
  * Returns groups where two or more words
  * share the same searchKey.
  */
-
 export async function getDuplicateGroups() {
 
     const database =
@@ -681,7 +849,9 @@ export async function getDuplicateGroups() {
 
             const duplicates = [];
 
+
             let currentKey = null;
+
             let currentGroup = [];
 
 
@@ -748,6 +918,7 @@ export async function getDuplicateGroups() {
 
                     }
 
+
                     /*
                      * Same searchKey
                      */
@@ -760,6 +931,7 @@ export async function getDuplicateGroups() {
                         );
 
                     }
+
 
                     /*
                      * New searchKey
@@ -795,6 +967,7 @@ export async function getDuplicateGroups() {
     );
 
 }
+
 
 /**
  * Delete one word
@@ -943,6 +1116,7 @@ export async function mergeWordRecords(
 
 }
 
+
 /**
  * Add or update an item in the sync queue.
  */
@@ -1068,6 +1242,208 @@ export async function removeFromSyncQueue(
             const store =
                 tx.objectStore(
                     STORES.SYNC_QUEUE
+                );
+
+
+            store.delete(id);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Add or update a tombstone record.
+ */
+export async function saveTombstone(tombstone) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.TOMBSTONES,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.TOMBSTONES
+                );
+
+
+            store.put(tombstone);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get all tombstone records.
+ */
+export async function getTombstones() {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.TOMBSTONES,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.TOMBSTONES
+                );
+
+
+            const request =
+                store.getAll();
+
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result
+                );
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get one tombstone by id.
+ */
+export async function getTombstone(id) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.TOMBSTONES,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.TOMBSTONES
+                );
+
+
+            const request =
+                store.get(id);
+
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result ?? null
+                );
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Remove a tombstone record.
+ */
+export async function deleteTombstone(id) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.TOMBSTONES,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.TOMBSTONES
                 );
 
 

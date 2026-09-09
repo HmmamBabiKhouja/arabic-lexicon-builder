@@ -1,3 +1,7 @@
+/* ==========================================================
+   Mu'jam - Word Service
+========================================================== */
+
 import {
     getWord,
     updateWord,
@@ -11,9 +15,23 @@ import {
 
 import {
     syncWord,
-    queueWordSync
+    queueWordSync,
+    queueWordDeletion,
+    syncReview
 } from "./syncService.js";
-import { normalizeArabic } from "../utils/arabicNormalizer.js";
+
+import {
+    normalizeArabic
+} from "../utils/arabicNormalizer.js";
+
+import {
+    saveTombstone
+} from "../database/db.js";
+
+import {
+    upsertWordInMemory,
+    removeWordFromMemory
+} from "./dictionaryState.js";
 
 
 /**
@@ -24,6 +42,7 @@ export async function loadWord(id) {
     return await getWord(id);
 
 }
+
 
 /**
  * Save one word locally and synchronize
@@ -64,16 +83,24 @@ export async function saveWord(word) {
 
     await updateWord(word);
 
+    upsertWordInMemory(word);
+
+
+    // =====================================
+    // QUEUE CLOUD SYNCHRONIZATION
+    // =====================================
+
     await queueWordSync(word);
 
 
     /*
-    * Do not wait for Firestore.
-    *
-    * The local save is already complete.
-    * Firestore synchronization happens in the
-    * background and cannot block the editor.
-    */
+     * Do not wait for Firestore.
+     *
+     * The local save is already complete.
+     * Firestore synchronization happens in the
+     * background and cannot block the editor.
+     */
+
     void syncWord(
         word
     ).catch(error => {
@@ -85,6 +112,115 @@ export async function saveWord(word) {
         );
 
     });
+
+}
+
+
+/**
+ * Delete one word locally and synchronize
+ * the deletion with Firestore.
+ */
+export async function removeWord(wordId) {
+
+    if (
+        wordId === null ||
+        wordId === undefined
+    ) {
+
+        throw new Error(
+            "Word ID is required."
+        );
+
+    }
+
+
+    const word =
+        await getWord(
+            wordId
+        );
+
+
+    if (!word) {
+
+        throw new Error(
+            "Word not found."
+        );
+
+    }
+
+
+    // =====================================
+    // Deletion timestamp
+    // =====================================
+
+    const deletedAt =
+        new Date();
+
+
+    // =====================================
+    // LOCAL DELETE
+    // =====================================
+
+    await deleteWord(
+        wordId
+    );
+
+    removeWordFromMemory(wordId);
+
+
+    // =====================================
+    // DELETE ASSOCIATED REVIEW
+    // =====================================
+
+    await deleteReview(
+        wordId
+    );
+
+
+    // =====================================
+    // CREATE LOCAL TOMBSTONE
+    // =====================================
+
+    const tombstone = {
+
+        id: `word:${wordId}`,
+
+        type: "word",
+
+        recordId: String(
+            wordId
+        ),
+
+        deletedAt: deletedAt.toISOString()
+
+    };
+
+
+    await saveTombstone(
+        tombstone
+    );
+
+
+    // =====================================
+    // QUEUE DELETION
+    // =====================================
+
+    await queueWordDeletion(
+        tombstone
+    );
+
+
+    /*
+     * Do not wait for Firestore.
+     *
+     * The local deletion has already completed.
+     * Cloud deletion happens in the background.
+     */
+
+    console.log(
+        "Word deleted locally:",
+        wordId
+    );
 
 }
 
@@ -285,8 +421,15 @@ export async function mergeWords(
     ) {
 
         mergedReview = {
+
             ...sourceReview,
-            wordId: targetWord.id
+
+            wordId:
+                targetWord.id,
+
+            updatedAt:
+                new Date()
+
         };
 
     }
@@ -316,24 +459,80 @@ export async function mergeWords(
         mergedReview
     );
 
+    upsertWordInMemory(targetWord);
+    removeWordFromMemory(sourceWord.id);
+
 
     // =====================================
-    // Synchronize surviving word
+    // Create tombstone for source word
     // =====================================
 
-    try {
+    const sourceTombstone = {
 
-        await syncWord(
-            targetWord
-        );
+        id:
+            `word:${sourceWord.id}`,
 
-    } catch (error) {
+        type:
+            "word",
+
+        recordId:
+            String(
+                sourceWord.id
+            ),
+
+        deletedAt:
+            new Date().toISOString()
+
+    };
+
+
+    await saveTombstone(
+        sourceTombstone
+    );
+
+
+    // =====================================
+    // Queue source deletion
+    // =====================================
+
+    await queueWordDeletion(
+        sourceTombstone
+    );
+
+
+    // =====================================
+    // Synchronize surviving target word
+    // =====================================
+
+    void syncWord(
+        targetWord
+    ).catch(error => {
 
         console.error(
             "Cloud synchronization failed after merge. " +
-            "Merge was saved locally:",
+            "Merged word remains saved locally:",
             error
         );
+
+    });
+
+
+    // =====================================
+    // Synchronize migrated review
+    // =====================================
+
+    if (mergedReview) {
+
+        void syncReview(
+            mergedReview
+        ).catch(error => {
+
+            console.error(
+                "Cloud review synchronization failed after merge:",
+                error
+            );
+
+        });
 
     }
 

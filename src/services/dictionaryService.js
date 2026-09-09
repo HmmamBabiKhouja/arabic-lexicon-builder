@@ -1,53 +1,80 @@
-import { Word } from "../models/Word.js";
 import { loadDictionary } from "../repositories/wordRepository.js";
+import { saveWord } from "./wordService.js";
+import { saveReview } from "./reviewService.js";
+import { saveCurrentIndex } from "./settingsService.js";
+import {
+    getWordsState,
+    setWordsState,
+    getIndexState,
+    setIndexState,
+    upsertWordInMemory,
+    removeWordFromMemory
+} from "./dictionaryState.js";
 
-let words = [];
-let currentIndex = 0;
+export { upsertWordInMemory, removeWordFromMemory };
 
 export function setWords(newWords) {
-    words = newWords;
-    currentIndex = 0;
+    setWordsState(newWords);
+    setIndexState(0);
 }
 
 export function getCurrentWord() {
-    return words[currentIndex] ?? null;
+    return getWordsState()[getIndexState()] ?? null;
 }
 
 export function nextWord() {
+    const words = getWordsState();
+    let currentIndex = getIndexState();
+
     if (currentIndex < words.length) {
         currentIndex++;
+        setIndexState(currentIndex);
+    }
+
+    return getCurrentWord();
+}
+
+export function previousWord() {
+    let currentIndex = getIndexState();
+
+    if (currentIndex > 0) {
+        currentIndex--;
+        setIndexState(currentIndex);
     }
 
     return getCurrentWord();
 }
 
 export function getCurrentIndex() {
-    return Math.min(currentIndex + 1, words.length);
+    const words = getWordsState();
+    return Math.min(getIndexState() + 1, words.length);
 }
 
 export function setCurrentIndex(index) {
+    const words = getWordsState();
 
-    if (index < 0) {
-        currentIndex = 0;
+    if (words.length === 0 || index < 0) {
+        setIndexState(0);
         return;
     }
 
-    if (index >= words.length) {
-        currentIndex = words.length - 1;
+    if (index > words.length) {
+        setIndexState(words.length);
         return;
     }
 
-    currentIndex = index;
-
+    setIndexState(index);
 }
 
 export function getTotalWords() {
-    return words.length;
+    return getWordsState().length;
 }
 
 export function saveCategories(wordId, categories) {
 
-    const word = words.find(w => w.id === wordId);
+    const word = getWordsState().find(
+        w => String(w.id) === String(wordId)
+    );
 
     if (!word) return;
 
@@ -55,27 +82,80 @@ export function saveCategories(wordId, categories) {
     word.updatedAt = new Date();
 }
 
+export async function persistReviewPosition() {
+
+    await saveCurrentIndex(getIndexState());
+
+}
+
+/**
+ * Persist categories and review outcome, then move forward.
+ */
+export async function completeCurrentReview({
+    categories = [],
+    accepted = true,
+    status = "reviewed"
+} = {}) {
+
+    const word = getCurrentWord();
+
+    if (!word) {
+        return null;
+    }
+
+    word.categories = [...categories];
+    word.status = status;
+    word.updatedAt = new Date();
+
+    await saveWord(word);
+    await saveReview(word.id, categories, accepted);
+
+    nextWord();
+    await persistReviewPosition();
+
+    return getCurrentWord();
+
+}
+
+export async function skipCurrentWord() {
+
+    nextWord();
+    await persistReviewPosition();
+
+    return getCurrentWord();
+
+}
+
+export async function goToPreviousWord() {
+
+    previousWord();
+    await persistReviewPosition();
+
+    return getCurrentWord();
+
+}
+
 export function resetReview() {
-    currentIndex = 0;
+    setIndexState(0);
 }
 
 export function hasWords() {
 
-    return words.length > 0;
+    return getWordsState().length > 0;
 
 }
 
 export async function initializeDictionary() {
 
-    const words = await loadDictionary();
+    const loadedWords = await loadDictionary();
 
-    if (!words.length) {
+    if (!loadedWords.length) {
 
         return false;
 
     }
 
-    setWords(words);
+    setWords(loadedWords);
 
     return true;
 

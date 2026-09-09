@@ -17,7 +17,8 @@ import {
  */
 export async function saveReview(
     wordId,
-    categories
+    categories,
+    accepted = true
 ) {
 
     const review = {
@@ -28,7 +29,7 @@ export async function saveReview(
 
         notes: "",
 
-        accepted: true,
+        accepted,
 
         updatedAt: new Date()
 

@@ -190,6 +190,19 @@ if (googleSignInButton) {
                 <div class="stat-item">
 
                     <strong>
+                        الكلمات المستبعدة
+                    </strong>
+
+                    <span>
+                        ${stats.rejected}
+                    </span>
+
+                </div>
+
+
+                <div class="stat-item">
+
+                    <strong>
                         الكلمات المتبقية
                     </strong>
 
@@ -240,7 +253,7 @@ if (googleSignInButton) {
                 الموضع الحالي:
                 
                 <strong>
-                    ${state.currentIndex + 1}
+                    ${Math.min(state.currentIndex + 1, state.totalWords)}
                 </strong>
 
                 من

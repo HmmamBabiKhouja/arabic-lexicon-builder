@@ -2,8 +2,8 @@ import {
     mergeWordRecords,
     saveWords,
     getWords,
+    getWordById,
     getWordBySearchKey,
-    getWordsBySearchKey,
     getDuplicateGroups,
     deleteWord as deleteWordFromDatabase,
     getReview as getReviewFromDatabase,
@@ -86,13 +86,7 @@ export async function loadDictionary() {
  */
 export async function getWord(id) {
 
-    const words =
-        await getWords();
-
-
-    return (
-        words.find(word => word.id === id) ?? null
-    );
+    return await getWordById(id);
 
 }
 

@@ -1,5 +1,6 @@
 
 import { getDuplicateGroups } from "../services/duplicateService.js";
+import { mergeWords } from "../services/wordService.js";
 
 
 export async function renderDuplicateScreen(container) {
@@ -158,6 +159,16 @@ export async function renderDuplicateScreen(container) {
 
                                     </button>
 
+                                    <button
+                                        class="keepWordButton"
+                                        data-id="${word.id}"
+                                        data-group="${index}"
+                                    >
+
+                                        الإبقاء ودمج الباقي
+
+                                    </button>
+
                                 </div>
 
                             `)
@@ -187,6 +198,87 @@ export async function renderDuplicateScreen(container) {
 
                         window.location.hash =
                             "#/word/" + id;
+
+                    }
+                );
+
+            });
+
+
+        document
+            .querySelectorAll(
+                ".keepWordButton"
+            )
+            .forEach(button => {
+
+                button.addEventListener(
+                    "click",
+                    async () => {
+
+                        const groupIndex =
+                            Number(button.dataset.group);
+
+                        const keepId =
+                            button.dataset.id;
+
+                        const group =
+                            duplicateGroups[groupIndex];
+
+                        if (!group) {
+                            return;
+                        }
+
+                        const targetWord =
+                            group.words.find(
+                                word => String(word.id) === String(keepId)
+                            );
+
+                        const sourceWords =
+                            group.words.filter(
+                                word => String(word.id) !== String(keepId)
+                            );
+
+                        if (!targetWord || !sourceWords.length) {
+                            return;
+                        }
+
+                        const confirmed = confirm(
+                            `هل تريد الإبقاء على "${targetWord.currentWord}" ودمج ${sourceWords.length} سجل(ات) فيها؟`
+                        );
+
+                        if (!confirmed) {
+                            return;
+                        }
+
+                        button.disabled = true;
+                        button.textContent = "جارٍ الدمج...";
+
+                        try {
+
+                            for (const sourceWord of sourceWords) {
+
+                                await mergeWords(
+                                    sourceWord,
+                                    targetWord
+                                );
+
+                            }
+
+                            await renderDuplicateScreen(container);
+
+                        } catch (error) {
+
+                            console.error(
+                                "Failed to merge duplicate group:",
+                                error
+                            );
+
+                            button.disabled = false;
+                            button.textContent = "الإبقاء ودمج الباقي";
+
+                            alert("حدث خطأ أثناء دمج التكرارات.");
+
+                        }
 
                     }
                 );

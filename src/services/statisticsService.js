@@ -12,24 +12,34 @@ export async function getStatistics() {
 
     const reviewed =
         words.filter(word =>
+            word.status === "reviewed"
+        ).length;
 
-            word.status !== "pending"
-
+    const rejected =
+        words.filter(word =>
+            word.status === "rejected"
         ).length;
 
     const remaining =
-        total - reviewed;
+        words.filter(word =>
+            !word.status || word.status === "pending"
+        ).length;
+
+    const processed =
+        reviewed + rejected;
 
     const percent =
         total === 0
             ? 0
-            : (reviewed / total * 100);
+            : (processed / total * 100);
 
     return {
 
         total,
         reviewed,
+        rejected,
         remaining,
+        processed,
         percent
 
     };
