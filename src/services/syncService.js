@@ -718,6 +718,54 @@ export async function processSyncQueue() {
 
 }
 
+function parseSyncTimestamp(value) {
+    if (!value) {
+        return null;
+    }
+
+    // Firestore Timestamp
+    if (typeof value.toDate === "function") {
+        const date = value.toDate();
+
+        if (date instanceof Date && !Number.isNaN(date.getTime())) {
+            return date;
+        }
+
+        return null;
+    }
+
+    // JavaScript Date
+    if (value instanceof Date) {
+        return !Number.isNaN(value.getTime())
+            ? value
+            : null;
+    }
+
+    // String date
+    if (typeof value === "string") {
+        const time = Date.parse(value);
+
+        return Number.isNaN(time)
+            ? null
+            : new Date(time);
+    }
+
+    // Unix timestamp in milliseconds
+    if (typeof value === "number") {
+        // Ignore suspiciously small numbers such as 10.
+        if (value < 1000000000000) {
+            return null;
+        }
+
+        const date = new Date(value);
+
+        return !Number.isNaN(date.getTime())
+            ? date
+            : null;
+    }
+
+    return null;
+}
 
 /* ==========================================================
    PULL WORDS FROM FIRESTORE
@@ -729,11 +777,9 @@ export async function pullWordsFromFirestore() {
 
         markSyncing();
 
-
         console.log(
             "SYNC PULL: downloading words from Firestore..."
         );
-
 
         const snapshot =
             await getDocs(
@@ -743,30 +789,22 @@ export async function pullWordsFromFirestore() {
                 )
             );
 
-
         const localWords =
             await getWords();
-
 
         const localById =
             new Map(
                 localWords.map(
                     word => [
-                        String(
-                            word.id
-                        ),
+                        String(word.id),
                         word
                     ]
                 )
             );
 
-
         let imported = 0;
-
         let updated = 0;
-
         let skipped = 0;
-
 
         for (
             const documentSnapshot
@@ -776,95 +814,84 @@ export async function pullWordsFromFirestore() {
             const remoteWord =
                 documentSnapshot.data();
 
-
             const remoteId =
                 String(
                     remoteWord.id ??
                     documentSnapshot.id
                 );
 
+            /*
+             * Validate remote updatedAt first.
+             */
+            const remoteUpdatedDate =
+                parseSyncTimestamp(
+                    remoteWord.updatedAt
+                );
+
+            if (!remoteUpdatedDate) {
+
+                console.warn(
+                    "SYNC PULL: invalid remote updatedAt for word:",
+                    remoteId,
+                    remoteWord.updatedAt
+                );
+
+                skipped++;
+
+                continue;
+            }
 
             const localWord =
                 localById.get(
                     remoteId
                 );
 
-
             /* ----------------------------------------------
                Word does not exist locally
             ---------------------------------------------- */
 
-            if (
-                !localWord
-            ) {
+            if (!localWord) {
+
+                const createdAt =
+                    parseSyncTimestamp(
+                        remoteWord.createdAt
+                    ) ?? new Date();
 
                 await saveWords([
                     {
-
                         ...remoteWord,
 
                         id:
                             remoteId,
 
-                        createdAt:
-                            remoteWord.createdAt
-                                ? new Date(
-                                    remoteWord.createdAt
-                                )
-                                : new Date(),
+                        createdAt,
 
                         updatedAt:
-                            remoteWord.updatedAt
-                                ? new Date(
-                                    remoteWord.updatedAt
-                                )
-                                : new Date()
-
+                            remoteUpdatedDate
                     }
                 ]);
-
 
                 imported++;
 
                 continue;
-
             }
-
 
             /* ----------------------------------------------
                Compare timestamps
             ---------------------------------------------- */
 
-            const localUpdatedAt =
-                new Date(
+            const localUpdatedDate =
+                parseSyncTimestamp(
                     localWord.updatedAt
-                ).getTime();
-
-
-            const remoteUpdatedAt =
-                new Date(
-                    remoteWord.updatedAt
-                ).getTime();
-
-
-            if (
-                Number.isNaN(
-                    remoteUpdatedAt
-                )
-            ) {
-
-                console.warn(
-                    "SYNC PULL: invalid remote updatedAt:",
-                    remoteId
                 );
 
+            const localUpdatedAt =
+                localUpdatedDate
+                    ? localUpdatedDate.getTime()
+                    : 0;
 
-                skipped++;
-
-                continue;
-
-            }
-
+            const remoteUpdatedAt =
+                remoteUpdatedDate.getTime();
 
             /* ----------------------------------------------
                Remote is newer
@@ -875,46 +902,36 @@ export async function pullWordsFromFirestore() {
                 localUpdatedAt
             ) {
 
+                const remoteCreatedDate =
+                    parseSyncTimestamp(
+                        remoteWord.createdAt
+                    );
+
                 await saveWords([
                     {
-
                         ...remoteWord,
 
                         id:
                             localWord.id,
 
                         createdAt:
-                            remoteWord.createdAt
-                                ? new Date(
-                                    remoteWord.createdAt
-                                )
-                                : localWord.createdAt,
+                            remoteCreatedDate ??
+                            localWord.createdAt,
 
                         updatedAt:
-                            remoteWord.updatedAt
-                                ? new Date(
-                                    remoteWord.updatedAt
-                                )
-                                : localWord.updatedAt
-
+                            remoteUpdatedDate
                     }
                 ]);
-
 
                 updated++;
 
                 continue;
-
             }
 
-
             skipped++;
-
         }
 
-
         markSyncComplete();
-
 
         console.log(
             "SYNC PULL COMPLETE:",
@@ -924,7 +941,6 @@ export async function pullWordsFromFirestore() {
                 skipped
             }
         );
-
 
         return {
             imported,
@@ -939,16 +955,11 @@ export async function pullWordsFromFirestore() {
             error
         );
 
-
         markSyncError();
 
-
         throw error;
-
     }
-
 }
-
 
 /* ==========================================================
    REVIEW QUEUE
