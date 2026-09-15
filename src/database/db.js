@@ -1,14 +1,15 @@
 import { runMigrations } from "./migrations/migrationManager.js";
 
 const DB_NAME = "arabic-review-db";
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 const STORES = {
     WORDS: "words",
     REVIEWS: "reviews",
     SETTINGS: "settings",
     SYNC_QUEUE: "syncQueue",
-    TOMBSTONES: "tombstones"
+    TOMBSTONES: "tombstones",
+    CONFLICTS: "conflicts"
 };
 
 let db = null;
@@ -158,6 +159,39 @@ export async function openDatabase() {
                     {
                         keyPath: "id"
                     }
+                );
+
+            }
+
+
+            // =====================================
+            // CONFLICTS STORE
+            // =====================================
+
+            if (
+                !db.objectStoreNames.contains(
+                    STORES.CONFLICTS
+                )
+            ) {
+
+                db.createObjectStore(
+                    STORES.CONFLICTS,
+                    {
+                        keyPath: "id"
+                    }
+                );
+
+            }
+
+
+            // =====================================
+            // MIGRATION: VERSION 9
+            // =====================================
+
+            if (event.oldVersion < 9) {
+
+                console.log(
+                    "Migration 9: adding conflicts store..."
                 );
 
             }
@@ -624,7 +658,7 @@ export async function getSetting(key) {
 /**
  * Read one word by primary key.
  * Accepts numeric ids stored as numbers even when
- * the caller passes a string (for example from a route).
+ * the caller passes a string.
  */
 export async function getWordById(id) {
 
@@ -708,7 +742,7 @@ export async function getWordById(id) {
 
 
 /**
- * Find one word by its searchKey using the IndexedDB index.
+ * Find one word by its searchKey.
  */
 export async function getWordBySearchKey(searchKey) {
 
@@ -793,7 +827,9 @@ export async function getWordsBySearchKey(searchKey) {
 
         request.onsuccess = () => {
 
-            resolve(request.result ?? []);
+            resolve(
+                request.result ?? []
+            );
 
         };
 
@@ -811,9 +847,6 @@ export async function getWordsBySearchKey(searchKey) {
 
 /**
  * Find duplicate groups using the searchKey index.
- *
- * Returns groups where two or more words
- * share the same searchKey.
  */
 export async function getDuplicateGroups() {
 
@@ -848,7 +881,6 @@ export async function getDuplicateGroups() {
 
 
             const duplicates = [];
-
 
             let currentKey = null;
 
@@ -902,9 +934,6 @@ export async function getDuplicateGroups() {
                         cursor.key;
 
 
-                    /*
-                     * First record
-                     */
                     if (
                         currentKey === null
                     ) {
@@ -918,10 +947,6 @@ export async function getDuplicateGroups() {
 
                     }
 
-
-                    /*
-                     * Same searchKey
-                     */
                     else if (
                         key === currentKey
                     ) {
@@ -932,10 +957,6 @@ export async function getDuplicateGroups() {
 
                     }
 
-
-                    /*
-                     * New searchKey
-                     */
                     else {
 
                         finishGroup();
@@ -1018,12 +1039,6 @@ export async function deleteWord(wordId) {
 
 /**
  * Atomically merge two word records
- *
- * Saves the target word,
- * optionally transfers the review,
- * deletes the source word,
- * and deletes the source review
- * in one transaction.
  */
 export async function mergeWordRecords(
     sourceWord,
@@ -1060,11 +1075,9 @@ export async function mergeWordRecords(
                 );
 
 
-            // Save merged target
             wordStore.put(targetWord);
 
 
-            // Save transferred review
             if (mergedReview) {
 
                 reviewStore.put(
@@ -1074,13 +1087,11 @@ export async function mergeWordRecords(
             }
 
 
-            // Delete source word
             wordStore.delete(
                 sourceWord.id
             );
 
 
-            // Delete source review
             reviewStore.delete(
                 sourceWord.id
             );
@@ -1382,16 +1393,184 @@ export async function getTombstone(id) {
     return new Promise(
         (resolve, reject) => {
 
+        const tx =
+            database.transaction(
+                STORES.TOMBSTONES,
+                "readonly"
+            );
+
+
+        const store =
+            tx.objectStore(
+                STORES.TOMBSTONES
+            );
+
+
+        const request =
+            store.get(id);
+
+
+        request.onsuccess = () => {
+
+            resolve(
+                request.result ?? null
+            );
+
+        };
+
+
+        request.onerror = () => {
+
+            reject(
+                request.error
+            );
+
+        };
+
+    });
+
+}
+
+
+/**
+ * Remove a tombstone record.
+ */
+export async function deleteTombstone(id) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
             const tx =
                 database.transaction(
                     STORES.TOMBSTONES,
-                    "readonly"
+                    "readwrite"
                 );
 
 
             const store =
                 tx.objectStore(
                     STORES.TOMBSTONES
+                );
+
+
+            store.delete(id);
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/* ==========================================================
+   CONFLICTS
+========================================================== */
+
+
+/**
+ * Save or update a conflict record.
+ */
+export async function saveConflict(conflict) {
+
+    if (
+        !conflict ||
+        !conflict.id
+    ) {
+
+        throw new Error(
+            "Cannot save an invalid conflict."
+        );
+
+    }
+
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.CONFLICTS,
+                    "readwrite"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.CONFLICTS
+                );
+
+
+            store.put(
+                conflict
+            );
+
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get one conflict by id.
+ */
+export async function getConflict(id) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.CONFLICTS,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.CONFLICTS
                 );
 
 
@@ -1423,9 +1602,9 @@ export async function getTombstone(id) {
 
 
 /**
- * Remove a tombstone record.
+ * Get all conflict records.
  */
-export async function deleteTombstone(id) {
+export async function getConflicts() {
 
     const database =
         await openDatabase();
@@ -1436,14 +1615,66 @@ export async function deleteTombstone(id) {
 
             const tx =
                 database.transaction(
-                    STORES.TOMBSTONES,
+                    STORES.CONFLICTS,
+                    "readonly"
+                );
+
+
+            const store =
+                tx.objectStore(
+                    STORES.CONFLICTS
+                );
+
+
+            const request =
+                store.getAll();
+
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result ?? []
+                );
+
+            };
+
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Delete one conflict.
+ */
+export async function deleteConflict(id) {
+
+    const database =
+        await openDatabase();
+
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.CONFLICTS,
                     "readwrite"
                 );
 
 
             const store =
                 tx.objectStore(
-                    STORES.TOMBSTONES
+                    STORES.CONFLICTS
                 );
 
 

@@ -22,7 +22,8 @@ import {
     deleteWord,
     deleteReview,
     saveTombstone,
-    getTombstones
+    getTombstones,
+    saveConflict
 } from "../database/db.js";
 
 import {
@@ -767,6 +768,34 @@ function parseSyncTimestamp(value) {
     return null;
 }
 
+function wordContentChanged(localWord, remoteWord) {
+
+    const fields = [
+        "originalWord",
+        "currentWord",
+        "searchKey",
+        "frequency",
+        "status",
+        "categories",
+        "notes"
+    ];
+
+    return fields.some(field => {
+
+        const localValue =
+            JSON.stringify(
+                localWord?.[field] ?? null
+            );
+
+        const remoteValue =
+            JSON.stringify(
+                remoteWord?.[field] ?? null
+            );
+
+        return localValue !== remoteValue;
+    });
+}
+
 /* ==========================================================
    PULL WORDS FROM FIRESTORE
 ========================================================== */
@@ -802,9 +831,54 @@ export async function pullWordsFromFirestore() {
                 )
             );
 
+        /*
+         * Get the local queue once.
+         * This tells us which local words contain
+         * unsynchronized edits.
+         */
+
+        const syncQueue =
+            await getSyncQueue();
+
+        const pendingWordIds =
+            new Set(
+                syncQueue
+                    .filter(
+                        item =>
+                            item.type === "word"
+                    )
+                    .map(
+                        item =>
+                            String(item.recordId)
+                    )
+            );
+
+        /*
+         * Get local tombstones once.
+         */
+
+        const localTombstones =
+            await getTombstones();
+
+        const deletedWordIds =
+            new Set(
+                localTombstones
+                    .filter(
+                        tombstone =>
+                            tombstone.type === "word"
+                    )
+                    .map(
+                        tombstone =>
+                            String(
+                                tombstone.recordId
+                            )
+                    )
+            );
+
         let imported = 0;
         let updated = 0;
         let skipped = 0;
+        let conflicts = 0;
 
         for (
             const documentSnapshot
@@ -821,8 +895,30 @@ export async function pullWordsFromFirestore() {
                 );
 
             /*
-             * Validate remote updatedAt first.
+             * A locally deleted word must not be
+             * resurrected by the Firestore pull.
              */
+
+            if (
+                deletedWordIds.has(
+                    remoteId
+                )
+            ) {
+
+                console.log(
+                    "SYNC PULL: ignoring remotely existing word because local tombstone exists:",
+                    remoteId
+                );
+
+                skipped++;
+
+                continue;
+            }
+
+            /*
+             * Validate remote timestamp.
+             */
+
             const remoteUpdatedDate =
                 parseSyncTimestamp(
                     remoteWord.updatedAt
@@ -846,9 +942,9 @@ export async function pullWordsFromFirestore() {
                     remoteId
                 );
 
-            /* ----------------------------------------------
-               Word does not exist locally
-            ---------------------------------------------- */
+            /*
+             * Word does not exist locally.
+             */
 
             if (!localWord) {
 
@@ -876,9 +972,9 @@ export async function pullWordsFromFirestore() {
                 continue;
             }
 
-            /* ----------------------------------------------
-               Compare timestamps
-            ---------------------------------------------- */
+            /*
+             * Compare timestamps.
+             */
 
             const localUpdatedDate =
                 parseSyncTimestamp(
@@ -893,9 +989,112 @@ export async function pullWordsFromFirestore() {
             const remoteUpdatedAt =
                 remoteUpdatedDate.getTime();
 
-            /* ----------------------------------------------
-               Remote is newer
-            ---------------------------------------------- */
+            /*
+             * ==================================================
+             * CONFLICT DETECTION
+             * ==================================================
+             *
+             * A conflict exists when:
+             *
+             * 1. This device has an unsynchronized local edit.
+             * 2. Firestore has a different version.
+             * 3. The remote version is newer than the local one.
+             *
+             * We preserve BOTH versions.
+             */
+
+            const hasPendingLocalEdit =
+                pendingWordIds.has(
+                    remoteId
+                );
+
+            const contentChanged =
+                wordContentChanged(
+                    localWord,
+                    remoteWord
+                );
+
+            if (
+                hasPendingLocalEdit &&
+                contentChanged &&
+                remoteUpdatedAt >
+                    localUpdatedAt
+            ) {
+
+                const conflictId =
+                    `word:${remoteId}:${remoteUpdatedAt}`;
+
+                await saveConflict({
+
+                    id:
+                        conflictId,
+
+                    type:
+                        "word",
+
+                    wordId:
+                        remoteId,
+
+                    localWord:
+                        structuredClone(
+                            localWord
+                        ),
+
+                    remoteWord:
+                        {
+                            ...remoteWord,
+
+                            id:
+                                remoteId,
+
+                            createdAt:
+                                parseSyncTimestamp(
+                                    remoteWord.createdAt
+                                ) ?? localWord.createdAt,
+
+                            updatedAt:
+                                remoteUpdatedDate
+                        },
+
+                    detectedAt:
+                        new Date(),
+
+                    localUpdatedAt:
+                        localUpdatedDate ??
+                        null,
+
+                    remoteUpdatedAt:
+                        remoteUpdatedDate,
+
+                    status:
+                        "pending"
+                });
+
+                /*
+                 * Remove the normal upload queue item.
+                 * The local version must NOT overwrite
+                 * the remote version automatically.
+                 */
+
+                await removeFromSyncQueue(
+                    `word:${remoteId}`
+                );
+
+                conflicts++;
+
+                console.warn(
+                    "SYNC CONFLICT DETECTED:",
+                    remoteId
+                );
+
+                continue;
+            }
+
+            /*
+             * ==================================================
+             * REMOTE IS NEWER
+             * ==================================================
+             */
 
             if (
                 remoteUpdatedAt >
@@ -928,6 +1127,11 @@ export async function pullWordsFromFirestore() {
                 continue;
             }
 
+            /*
+             * Local version is newer or versions
+             * are already equal.
+             */
+
             skipped++;
         }
 
@@ -938,6 +1142,7 @@ export async function pullWordsFromFirestore() {
             {
                 imported,
                 updated,
+                conflicts,
                 skipped
             }
         );
@@ -945,6 +1150,7 @@ export async function pullWordsFromFirestore() {
         return {
             imported,
             updated,
+            conflicts,
             skipped
         };
 
