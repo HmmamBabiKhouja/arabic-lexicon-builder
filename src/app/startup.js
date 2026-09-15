@@ -16,7 +16,8 @@ import {
     processSyncQueue,
     pullTombstonesFromFirestore,
     pullWordsFromFirestore,
-    pullReviewsFromFirestore
+    pullReviewsFromFirestore,
+    setSyncStatus
 } from "../services/syncService.js";
 
 
@@ -25,49 +26,19 @@ import {
 ========================================================== */
 
 async function runFullSync() {
-
-    console.log(
-        "FULL SYNC: starting..."
-    );
-
+    console.log("FULL SYNC: starting...");
 
     try {
-
-        /* --------------------------------------------------
-           Step 1
-           Upload pending local changes
-        -------------------------------------------------- */
+        setSyncStatus("syncing");
 
         await processSyncQueue();
-
-
-        /* --------------------------------------------------
-           Step 2
-           Pull deletions first
-        -------------------------------------------------- */
-
         await pullTombstonesFromFirestore();
-
-
-        /* --------------------------------------------------
-           Step 3
-           Pull newer words
-        -------------------------------------------------- */
-
         await pullWordsFromFirestore();
-
-
-        /* --------------------------------------------------
-           Step 4
-           Pull newer reviews
-        -------------------------------------------------- */
-
         await pullReviewsFromFirestore();
 
+        setSyncStatus("idle");
 
-        console.log(
-            "FULL SYNC: completed successfully."
-        );
+        console.log("FULL SYNC: completed successfully.");
 
     } catch (error) {
 
@@ -76,8 +47,8 @@ async function runFullSync() {
             error
         );
 
+        setSyncStatus("error");
     }
-
 }
 
 
