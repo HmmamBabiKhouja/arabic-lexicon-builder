@@ -59,6 +59,30 @@ export async function saveWord(word) {
     }
 
 
+    /*
+     * ------------------------------------------------------
+     * Preserve the version that this local edit was based on.
+     *
+     * Example:
+     *
+     * last synced updatedAt = A
+     * user edits word
+     * baseUpdatedAt = A
+     * new updatedAt = B
+     * ------------------------------------------------------
+     */
+
+    if (
+        word.baseUpdatedAt === undefined ||
+        word.baseUpdatedAt === null
+    ) {
+
+        word.baseUpdatedAt =
+            word.updatedAt || null;
+
+    }
+
+
     // =====================================
     // Update searchable value
     // =====================================
@@ -191,7 +215,8 @@ export async function removeWord(wordId) {
             wordId
         ),
 
-        deletedAt: deletedAt.toISOString()
+        deletedAt:
+            deletedAt.toISOString()
 
     };
 
@@ -209,13 +234,6 @@ export async function removeWord(wordId) {
         tombstone
     );
 
-
-    /*
-     * Do not wait for Firestore.
-     *
-     * The local deletion has already completed.
-     * Cloud deletion happens in the background.
-     */
 
     console.log(
         "Word deleted locally:",
@@ -445,6 +463,24 @@ export async function mergeWords(
         );
 
 
+    /*
+     * The merged local version is based on the
+     * current local target version.
+     */
+
+    if (
+        targetWord.baseUpdatedAt ===
+        undefined ||
+        targetWord.baseUpdatedAt ===
+        null
+    ) {
+
+        targetWord.baseUpdatedAt =
+            targetWord.updatedAt || null;
+
+    }
+
+
     targetWord.updatedAt =
         new Date();
 
@@ -459,8 +495,13 @@ export async function mergeWords(
         mergedReview
     );
 
-    upsertWordInMemory(targetWord);
-    removeWordFromMemory(sourceWord.id);
+    upsertWordInMemory(
+        targetWord
+    );
+
+    removeWordFromMemory(
+        sourceWord.id
+    );
 
 
     // =====================================

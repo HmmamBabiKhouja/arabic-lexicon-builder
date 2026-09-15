@@ -258,6 +258,49 @@ export async function syncWord(
             }
         );
 
+        const syncedUpdatedAt =
+            parseSyncTimestamp(
+                word.updatedAt
+            );
+
+        if (syncedUpdatedAt) {
+
+            const localWords =
+                await getWords();
+
+            const currentLocalWord =
+                localWords.find(
+                    currentWord =>
+                        String(currentWord.id) ===
+                        String(word.id)
+                );
+
+            /*
+            * Only advance baseUpdatedAt if the local
+            * word is still the exact version we uploaded.
+            *
+            * This prevents an edit made while the upload
+            * was in progress from being overwritten.
+            */
+
+            if (
+                currentLocalWord &&
+                String(
+                    currentLocalWord.updatedAt
+                ) ===
+                String(
+                    word.updatedAt
+                )
+            ) {
+
+                currentLocalWord.baseUpdatedAt =
+                    syncedUpdatedAt;
+
+                await saveWords([
+                    currentLocalWord
+                ]);
+            }
+        }
 
         console.log(
             "Word synchronized with Firestore:",
@@ -800,6 +843,10 @@ function wordContentChanged(localWord, remoteWord) {
    PULL WORDS FROM FIRESTORE
 ========================================================== */
 
+/* ==========================================================
+   PULL WORDS FROM FIRESTORE
+========================================================== */
+
 export async function pullWordsFromFirestore() {
 
     try {
@@ -832,9 +879,10 @@ export async function pullWordsFromFirestore() {
             );
 
         /*
-         * Get the local queue once.
-         * This tells us which local words contain
-         * unsynchronized edits.
+         * Get the pending sync queue once.
+         *
+         * A word in this set has local changes that
+         * have not yet been safely synchronized.
          */
 
         const syncQueue =
@@ -849,12 +897,18 @@ export async function pullWordsFromFirestore() {
                     )
                     .map(
                         item =>
-                            String(item.recordId)
+                            String(
+                                item.recordId
+                            )
                     )
             );
 
+
         /*
          * Get local tombstones once.
+         *
+         * A locally deleted word must not be
+         * resurrected by the cloud pull.
          */
 
         const localTombstones =
@@ -875,10 +929,12 @@ export async function pullWordsFromFirestore() {
                     )
             );
 
+
         let imported = 0;
         let updated = 0;
-        let skipped = 0;
         let conflicts = 0;
+        let skipped = 0;
+
 
         for (
             const documentSnapshot
@@ -888,16 +944,17 @@ export async function pullWordsFromFirestore() {
             const remoteWord =
                 documentSnapshot.data();
 
+
             const remoteId =
                 String(
                     remoteWord.id ??
                     documentSnapshot.id
                 );
 
-            /*
-             * A locally deleted word must not be
-             * resurrected by the Firestore pull.
-             */
+
+            /* ==================================================
+               LOCAL TOMBSTONE PROTECTION
+            ================================================== */
 
             if (
                 deletedWordIds.has(
@@ -915,14 +972,16 @@ export async function pullWordsFromFirestore() {
                 continue;
             }
 
-            /*
-             * Validate remote timestamp.
-             */
+
+            /* ==================================================
+               VALIDATE REMOTE UPDATED AT
+            ================================================== */
 
             const remoteUpdatedDate =
                 parseSyncTimestamp(
                     remoteWord.updatedAt
                 );
+
 
             if (!remoteUpdatedDate) {
 
@@ -937,14 +996,16 @@ export async function pullWordsFromFirestore() {
                 continue;
             }
 
+
             const localWord =
                 localById.get(
                     remoteId
                 );
 
-            /*
-             * Word does not exist locally.
-             */
+
+            /* ==================================================
+               WORD DOES NOT EXIST LOCALLY
+            ================================================== */
 
             if (!localWord) {
 
@@ -953,8 +1014,10 @@ export async function pullWordsFromFirestore() {
                         remoteWord.createdAt
                     ) ?? new Date();
 
+
                 await saveWords([
                     {
+
                         ...remoteWord,
 
                         id:
@@ -963,50 +1026,77 @@ export async function pullWordsFromFirestore() {
                         createdAt,
 
                         updatedAt:
+                            remoteUpdatedDate,
+
+                        /*
+                         * This is now the cloud version
+                         * that this local copy is based on.
+                         */
+
+                        baseUpdatedAt:
                             remoteUpdatedDate
+
                     }
                 ]);
+
 
                 imported++;
 
                 continue;
             }
 
-            /*
-             * Compare timestamps.
-             */
+
+            /* ==================================================
+               LOCAL TIMESTAMP
+            ================================================== */
 
             const localUpdatedDate =
                 parseSyncTimestamp(
                     localWord.updatedAt
                 );
 
+
             const localUpdatedAt =
                 localUpdatedDate
                     ? localUpdatedDate.getTime()
                     : 0;
 
+
+            /* ==================================================
+               LOCAL BASE TIMESTAMP
+            ================================================== */
+
+            const baseUpdatedDate =
+                parseSyncTimestamp(
+                    localWord.baseUpdatedAt
+                );
+
+
+            /*
+             * Older records created before baseUpdatedAt
+             * existed may not have the field.
+             *
+             * In that case, use the local updatedAt as
+             * the best available baseline.
+             */
+
+            const baseUpdatedAt =
+                baseUpdatedDate
+                    ? baseUpdatedDate.getTime()
+                    : localUpdatedAt;
+
+
+            /* ==================================================
+               REMOTE TIMESTAMP
+            ================================================== */
+
             const remoteUpdatedAt =
                 remoteUpdatedDate.getTime();
 
-            /*
-             * ==================================================
-             * CONFLICT DETECTION
-             * ==================================================
-             *
-             * A conflict exists when:
-             *
-             * 1. This device has an unsynchronized local edit.
-             * 2. Firestore has a different version.
-             * 3. The remote version is newer than the local one.
-             *
-             * We preserve BOTH versions.
-             */
 
-            const hasPendingLocalEdit =
-                pendingWordIds.has(
-                    remoteId
-                );
+            /* ==================================================
+               ACTUAL CONTENT COMPARISON
+            ================================================== */
 
             const contentChanged =
                 wordContentChanged(
@@ -1014,17 +1104,51 @@ export async function pullWordsFromFirestore() {
                     remoteWord
                 );
 
+
+            /* ==================================================
+               PENDING LOCAL EDIT
+            ================================================== */
+
+            const hasPendingLocalEdit =
+                pendingWordIds.has(
+                    remoteId
+                );
+
+
+            /* ==================================================
+               CONFLICT DETECTION
+            ==================================================
+
+               A conflict exists when:
+
+               1. This device has a local edit waiting
+                  to be synchronized.
+
+               2. Firestore has changed since the version
+                  this local edit was based on.
+
+               3. The actual word data is different.
+
+               This does NOT depend on which phone has
+               the larger local clock value.
+            ================================================== */
+
+            const cloudChangedSinceBase =
+                remoteUpdatedAt >
+                baseUpdatedAt;
+
+
             if (
                 hasPendingLocalEdit &&
                 contentChanged &&
-                remoteUpdatedAt >
-                    localUpdatedAt
+                cloudChangedSinceBase
             ) {
 
                 const conflictId =
                     `word:${remoteId}:${remoteUpdatedAt}`;
 
-                await saveConflict({
+
+                const conflict = {
 
                     id:
                         conflictId,
@@ -1035,10 +1159,18 @@ export async function pullWordsFromFirestore() {
                     wordId:
                         remoteId,
 
+                    /*
+                     * Preserve the exact local version.
+                     */
+
                     localWord:
                         structuredClone(
                             localWord
                         ),
+
+                    /*
+                     * Preserve the exact remote version.
+                     */
 
                     remoteWord:
                         {
@@ -1050,9 +1182,13 @@ export async function pullWordsFromFirestore() {
                             createdAt:
                                 parseSyncTimestamp(
                                     remoteWord.createdAt
-                                ) ?? localWord.createdAt,
+                                ) ??
+                                localWord.createdAt,
 
                             updatedAt:
+                                remoteUpdatedDate,
+
+                            baseUpdatedAt:
                                 remoteUpdatedDate
                         },
 
@@ -1066,35 +1202,57 @@ export async function pullWordsFromFirestore() {
                     remoteUpdatedAt:
                         remoteUpdatedDate,
 
+                    baseUpdatedAt:
+                        baseUpdatedDate ??
+                        null,
+
                     status:
                         "pending"
-                });
+
+                };
+
 
                 /*
-                 * Remove the normal upload queue item.
-                 * The local version must NOT overwrite
-                 * the remote version automatically.
+                 * Store both versions locally.
+                 */
+
+                await saveConflict(
+                    conflict
+                );
+
+
+                /*
+                 * Remove the normal local upload
+                 * from the queue.
+                 *
+                 * This is critical:
+                 *
+                 * Phone B must NOT upload its local
+                 * version over Phone A's cloud version
+                 * while the conflict is unresolved.
                  */
 
                 await removeFromSyncQueue(
                     `word:${remoteId}`
                 );
 
+
                 conflicts++;
+
 
                 console.warn(
                     "SYNC CONFLICT DETECTED:",
                     remoteId
                 );
 
+
                 continue;
             }
 
-            /*
-             * ==================================================
-             * REMOTE IS NEWER
-             * ==================================================
-             */
+
+            /* ==================================================
+               REMOTE IS NEWER BUT THERE IS NO CONFLICT
+            ================================================== */
 
             if (
                 remoteUpdatedAt >
@@ -1106,8 +1264,10 @@ export async function pullWordsFromFirestore() {
                         remoteWord.createdAt
                     );
 
+
                 await saveWords([
                     {
+
                         ...remoteWord,
 
                         id:
@@ -1118,24 +1278,37 @@ export async function pullWordsFromFirestore() {
                             localWord.createdAt,
 
                         updatedAt:
+                            remoteUpdatedDate,
+
+                        /*
+                         * The local word is now based
+                         * on this cloud version.
+                         */
+
+                        baseUpdatedAt:
                             remoteUpdatedDate
+
                     }
                 ]);
+
 
                 updated++;
 
                 continue;
             }
 
-            /*
-             * Local version is newer or versions
-             * are already equal.
-             */
+
+            /* ==================================================
+               LOCAL IS NEWER / VERSIONS ARE EQUAL
+            ================================================== */
 
             skipped++;
+
         }
 
+
         markSyncComplete();
+
 
         console.log(
             "SYNC PULL COMPLETE:",
@@ -1147,12 +1320,16 @@ export async function pullWordsFromFirestore() {
             }
         );
 
+
         return {
+
             imported,
             updated,
             conflicts,
             skipped
+
         };
+
 
     } catch (error) {
 
@@ -1164,7 +1341,9 @@ export async function pullWordsFromFirestore() {
         markSyncError();
 
         throw error;
+
     }
+
 }
 
 /* ==========================================================
