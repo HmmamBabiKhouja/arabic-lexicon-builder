@@ -6,6 +6,7 @@
 import {
     collection,
     doc,
+    getDoc,
     getDocs,
     setDoc,
     deleteDoc
@@ -200,6 +201,10 @@ export async function queueWordSync(
    WORD CLOUD SYNC
 ========================================================== */
 
+/* ==========================================================
+   WORD CLOUD SYNC
+========================================================== */
+
 export async function syncWord(
     word
 ) {
@@ -227,19 +232,225 @@ export async function syncWord(
         markSyncing();
 
 
+        const wordId =
+            String(
+                word.id
+            );
+
+
         const wordRef =
             doc(
                 db,
                 "words",
-                String(
-                    word.id
-                )
+                wordId
             );
 
+
+        /* ==================================================
+           READ CURRENT FIRESTORE VERSION FIRST
+        ================================================== */
+
+        const remoteSnapshot =
+            await getDoc(
+                wordRef
+            );
+
+
+        if (
+            remoteSnapshot.exists()
+        ) {
+
+            const remoteWord =
+                remoteSnapshot.data();
+
+
+            const remoteUpdatedDate =
+                parseSyncTimestamp(
+                    remoteWord.updatedAt
+                );
+
+
+            /*
+             * If Firestore contains an invalid timestamp,
+             * do not overwrite it blindly.
+             */
+
+            if (
+                !remoteUpdatedDate
+            ) {
+
+                console.warn(
+                    "SYNC WORD: remote word has invalid updatedAt:",
+                    wordId
+                );
+
+            } else {
+
+                const remoteUpdatedAt =
+                    remoteUpdatedDate.getTime();
+
+
+                const baseUpdatedDate =
+                    parseSyncTimestamp(
+                        word.baseUpdatedAt
+                    );
+
+
+                const localBaseUpdatedAt =
+                    baseUpdatedDate
+                        ? baseUpdatedDate.getTime()
+                        : null;
+
+
+                /*
+                 * Check whether the remote version changed
+                 * after the version this local edit started from.
+                 */
+
+                const cloudChangedSinceBase =
+                    localBaseUpdatedAt !== null &&
+                    remoteUpdatedAt >
+                        localBaseUpdatedAt;
+
+
+                const contentChanged =
+                    wordContentChanged(
+                        word,
+                        remoteWord
+                    );
+
+
+                /* ==========================================
+                   CONFLICT
+                ========================================== */
+                console.log(
+                    "SYNC CONFLICT CHECK:",
+                    {
+                        wordId,
+                        hasRemoteVersion: remoteSnapshot.exists(),
+                        localBaseUpdatedAt:
+                            localBaseUpdatedAt,
+                        remoteUpdatedAt:
+                            remoteUpdatedAt,
+                        cloudChangedSinceBase:
+                            cloudChangedSinceBase,
+                        contentChanged:
+                            contentChanged,
+                        localWord:
+                            word.currentWord,
+                        remoteWord:
+                            remoteWord?.currentWord
+                    }
+                );        
+
+
+                if (
+                    cloudChangedSinceBase &&
+                    contentChanged
+                ) {
+
+                    const conflictId =
+                        `word:${wordId}:${remoteUpdatedAt}`;
+
+
+                    const conflict = {
+
+                        id:
+                            conflictId,
+
+                        type:
+                            "word",
+
+                        wordId:
+                            wordId,
+
+                        localWord:
+                            structuredClone(
+                                word
+                            ),
+
+                        remoteWord:
+                            {
+                                ...remoteWord,
+
+                                id:
+                                    wordId,
+
+                                updatedAt:
+                                    remoteUpdatedDate,
+
+                                baseUpdatedAt:
+                                    remoteUpdatedDate
+                            },
+
+                        detectedAt:
+                            new Date(),
+
+                        localUpdatedAt:
+                            parseSyncTimestamp(
+                                word.updatedAt
+                            ),
+
+                        remoteUpdatedAt:
+                            remoteUpdatedDate,
+
+                        baseUpdatedAt:
+                            baseUpdatedDate,
+
+                        status:
+                            "pending"
+
+                    };
+
+
+                    console.log(
+                        "SYNC CONFLICT: saving conflict record...",
+                        conflict
+                    );
+
+                    await saveConflict(
+                        conflict
+                    );
+
+                    console.log(
+                        "SYNC CONFLICT: conflict record saved:",
+                        conflictId
+                    );
+
+
+                    /*
+                     * Remove the normal upload queue.
+                     * The local version must not overwrite
+                     * the Firestore version automatically.
+                     */
+
+                    await removeFromSyncQueue(
+                        `word:${wordId}`
+                    );
+
+
+                    console.warn(
+                        "SYNC CONFLICT DETECTED:",
+                        wordId
+                    );
+
+
+                    return false;
+                }
+
+            }
+
+        }
+
+
+        /* ==================================================
+           NO CONFLICT → UPLOAD
+        ================================================== */
 
         await setDoc(
             wordRef,
             {
+
                 ...word,
 
                 updatedAt:
@@ -258,30 +469,39 @@ export async function syncWord(
             }
         );
 
-        const syncedUpdatedAt =
+
+        /* ==================================================
+           ADVANCE BASE VERSION
+        ================================================== */
+
+        const syncedUpdatedDate =
             parseSyncTimestamp(
                 word.updatedAt
             );
 
-        if (syncedUpdatedAt) {
+
+        if (
+            syncedUpdatedDate
+        ) {
 
             const localWords =
                 await getWords();
 
+
             const currentLocalWord =
                 localWords.find(
                     currentWord =>
-                        String(currentWord.id) ===
-                        String(word.id)
+                        String(
+                            currentWord.id
+                        ) ===
+                        wordId
                 );
 
+
             /*
-            * Only advance baseUpdatedAt if the local
-            * word is still the exact version we uploaded.
-            *
-            * This prevents an edit made while the upload
-            * was in progress from being overwritten.
-            */
+             * Only advance the base if the local word
+             * is still the exact version we uploaded.
+             */
 
             if (
                 currentLocalWord &&
@@ -294,21 +514,26 @@ export async function syncWord(
             ) {
 
                 currentLocalWord.baseUpdatedAt =
-                    syncedUpdatedAt;
+                    syncedUpdatedDate;
+
 
                 await saveWords([
                     currentLocalWord
                 ]);
+
             }
+
         }
+
 
         console.log(
             "Word synchronized with Firestore:",
-            word.id
+            wordId
         );
 
 
         return true;
+
 
     } catch (error) {
 
@@ -317,14 +542,15 @@ export async function syncWord(
             error
         );
 
+
         markSyncError();
+
 
         throw error;
 
     }
 
 }
-
 
 /* ==========================================================
    WORD DELETION QUEUE
