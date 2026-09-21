@@ -58,48 +58,17 @@ export async function saveWord(word) {
 
     }
 
-
-    /*
-     * ------------------------------------------------------
-     * Preserve the version that this local edit was based on.
-     *
-     * Example:
-     *
-     * last synced updatedAt = A
-     * user edits word
-     * baseUpdatedAt = A
-     * new updatedAt = B
-     * ------------------------------------------------------
-     */
-
-    if (
-        word.baseUpdatedAt === undefined ||
-        word.baseUpdatedAt === null
-    ) {
-
-        word.baseUpdatedAt =
-            word.updatedAt || null;
-
-    }
-
-
     // =====================================
     // Update searchable value
     // =====================================
 
-    word.searchKey =
-        normalizeArabic(
-            word.currentWord
-        );
-
+    word.searchKey =normalizeArabic(word.currentWord);
 
     // =====================================
     // Update modification timestamp
     // =====================================
 
-    word.updatedAt =
-        new Date();
-
+    word.updatedAt =new Date();
 
     // =====================================
     // LOCAL SAVE
@@ -109,13 +78,11 @@ export async function saveWord(word) {
 
     upsertWordInMemory(word);
 
-
     // =====================================
     // QUEUE CLOUD SYNCHRONIZATION
     // =====================================
 
     await queueWordSync(word);
-
 
     /*
      * Do not wait for Firestore.
@@ -124,18 +91,6 @@ export async function saveWord(word) {
      * Firestore synchronization happens in the
      * background and cannot block the editor.
      */
-
-    void syncWord(
-        word
-    ).catch(error => {
-
-        console.error(
-            "Cloud synchronization failed. " +
-            "Word was saved locally and remains queued:",
-            error
-        );
-
-    });
 
 }
 
