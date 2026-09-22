@@ -445,10 +445,17 @@ export async function getWords() {
  *
  * Does NOT load all words into memory.
  */
-export async function getWordIdsInBatches(
-    batchSize = 1000,
-    onBatch
-) {
+
+/**
+ * Read word IDs in chunks without loading the whole
+ * dictionary into memory.
+ */
+
+/**
+ * Read word IDs in chunks without loading the whole
+ * dictionary into memory.
+ */
+export async function getWordIdsInBatches(batchSize = 1000,onBatch) {
     const database = await openDatabase();
 
     return new Promise((resolve, reject) => {
@@ -465,18 +472,33 @@ export async function getWordIdsInBatches(
         const request = store.openCursor();
 
         let wordIds = [];
+        let batchQueue = Promise.resolve();
 
-        request.onsuccess = async event => {
+        request.onsuccess = event => {
 
             const cursor = event.target.result;
 
             if (!cursor) {
 
+                /*
+                 * Cursor is finished.
+                 * Queue the final partial batch here.
+                 */
                 if (wordIds.length > 0) {
-                    await onBatch(wordIds);
+
+                    const finalBatch = wordIds;
+
+                    wordIds = [];
+
+                    batchQueue = batchQueue.then(() =>
+                        onBatch(finalBatch)
+                    );
                 }
 
-                resolve();
+                batchQueue
+                    .then(() => resolve())
+                    .catch(reject);
+
                 return;
             }
 
@@ -488,12 +510,9 @@ export async function getWordIdsInBatches(
 
                 wordIds = [];
 
-                try {
-                    await onBatch(currentBatch);
-                } catch (error) {
-                    reject(error);
-                    return;
-                }
+                batchQueue = batchQueue.then(() =>
+                    onBatch(currentBatch)
+                );
             }
 
             cursor.continue();
@@ -501,6 +520,17 @@ export async function getWordIdsInBatches(
 
         request.onerror = () => {
             reject(request.error);
+        };
+
+        tx.onerror = () => {
+            reject(tx.error);
+        };
+
+        tx.onabort = () => {
+            reject(
+                tx.error ||
+                new Error("Word cursor transaction aborted.")
+            );
         };
     });
 }
@@ -2051,4 +2081,174 @@ export async function deleteBatch(
         }
     );
 
+}
+
+/**
+ * Get the first N word IDs only.
+ *
+ * Used for testing batch generation.
+ */
+export async function getFirstWordIds(limit = 10) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.WORDS,
+            "readonly"
+        );
+
+        const store = tx.objectStore(
+            STORES.WORDS
+        );
+
+        const request = store.openCursor();
+
+        const wordIds = [];
+
+        request.onsuccess = event => {
+
+            const cursor = event.target.result;
+
+            if (!cursor || wordIds.length >= limit) {
+                resolve(wordIds);
+                return;
+            }
+
+            wordIds.push(cursor.primaryKey);
+
+            cursor.continue();
+        };
+
+        request.onerror = () => {
+            reject(request.error);
+        };
+
+        tx.onerror = () => {
+            reject(tx.error);
+        };
+    });
+}
+
+/**
+ * Get the next N word IDs after a specific word ID.
+ *
+ * The cursor starts after lastWordId, so previously
+ * assigned words are not returned again.
+ */
+export async function getWordIdsAfter(
+    lastWordId,
+    limit = 1000
+) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.WORDS,
+            "readonly"
+        );
+
+        const store = tx.objectStore(
+            STORES.WORDS
+        );
+
+        const request = store.openCursor(
+            IDBKeyRange.lowerBound(
+                lastWordId,
+                true
+            )
+        );
+
+        const wordIds = [];
+
+        request.onsuccess = event => {
+
+            const cursor =
+                event.target.result;
+
+            if (
+                !cursor ||
+                wordIds.length >= limit
+            ) {
+
+                resolve(wordIds);
+
+                return;
+            }
+
+            wordIds.push(
+                cursor.primaryKey
+            );
+
+            cursor.continue();
+        };
+
+        request.onerror = () => {
+            reject(request.error);
+        };
+
+        tx.onerror = () => {
+            reject(tx.error);
+        };
+    });
+}
+
+/**
+ * Get the first N word IDs for real batch generation.
+ */
+export async function getFirstWordIdsForGeneration(
+    limit = 1000
+) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.WORDS,
+            "readonly"
+        );
+
+        const store = tx.objectStore(
+            STORES.WORDS
+        );
+
+        const request =
+            store.openCursor();
+
+        const wordIds = [];
+
+        request.onsuccess = event => {
+
+            const cursor =
+                event.target.result;
+
+            if (
+                !cursor ||
+                wordIds.length >= limit
+            ) {
+
+                resolve(wordIds);
+
+                return;
+            }
+
+            wordIds.push(
+                cursor.primaryKey
+            );
+
+            cursor.continue();
+        };
+
+        request.onerror = () => {
+            reject(request.error);
+        };
+
+        tx.onerror = () => {
+            reject(tx.error);
+        };
+    });
 }
