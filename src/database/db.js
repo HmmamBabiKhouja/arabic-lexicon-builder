@@ -1,7 +1,7 @@
 import { runMigrations } from "./migrations/migrationManager.js";
 
 const DB_NAME = "arabic-review-db";
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 
 const STORES = {
     WORDS: "words",
@@ -9,7 +9,8 @@ const STORES = {
     SETTINGS: "settings",
     SYNC_QUEUE: "syncQueue",
     TOMBSTONES: "tombstones",
-    CONFLICTS: "conflicts"
+    CONFLICTS: "conflicts", 
+    BATCHES: "batches"
 };
 
 let db = null;
@@ -83,7 +84,6 @@ export async function openDatabase() {
 
             }
 
-
             // =====================================
             // REVIEWS STORE
             // =====================================
@@ -102,7 +102,6 @@ export async function openDatabase() {
                 );
 
             }
-
 
             // =====================================
             // SETTINGS STORE
@@ -123,7 +122,6 @@ export async function openDatabase() {
 
             }
 
-
             // =====================================
             // SYNC QUEUE STORE
             // =====================================
@@ -142,7 +140,6 @@ export async function openDatabase() {
                 );
 
             }
-
 
             // =====================================
             // TOMBSTONES STORE
@@ -163,7 +160,6 @@ export async function openDatabase() {
 
             }
 
-
             // =====================================
             // CONFLICTS STORE
             // =====================================
@@ -183,6 +179,49 @@ export async function openDatabase() {
 
             }
 
+            // =====================================
+            // BATCHES STORE
+            // =====================================
+
+            if (
+                !db.objectStoreNames.contains(
+                    STORES.BATCHES
+                )
+            ) {
+
+                const batchStore =
+                    db.createObjectStore(
+                        STORES.BATCHES,
+                        {
+                            keyPath: "id"
+                        }
+                    );
+
+                batchStore.createIndex(
+                    "status",
+                    "status",
+                    {
+                        unique: false
+                    }
+                );
+
+                batchStore.createIndex(
+                    "stage",
+                    "stage",
+                    {
+                        unique: false
+                    }
+                );
+
+                batchStore.createIndex(
+                    "reviewerId",
+                    "reviewerId",
+                    {
+                        unique: false
+                    }
+                );
+
+            }
 
             // =====================================
             // MIGRATION: VERSION 9
@@ -196,7 +235,6 @@ export async function openDatabase() {
 
             }
 
-
             // =====================================
             // MIGRATION: VERSION 8
             // =====================================
@@ -208,7 +246,6 @@ export async function openDatabase() {
                 );
 
             }
-
 
             // =====================================
             // MIGRATION: VERSION 6
@@ -403,6 +440,70 @@ export async function getWords() {
 
 }
 
+/**
+ * Read word IDs in a streaming/chunked way.
+ *
+ * Does NOT load all words into memory.
+ */
+export async function getWordIdsInBatches(
+    batchSize = 1000,
+    onBatch
+) {
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            STORES.WORDS,
+            "readonly"
+        );
+
+        const store = tx.objectStore(
+            STORES.WORDS
+        );
+
+        const request = store.openCursor();
+
+        let wordIds = [];
+
+        request.onsuccess = async event => {
+
+            const cursor = event.target.result;
+
+            if (!cursor) {
+
+                if (wordIds.length > 0) {
+                    await onBatch(wordIds);
+                }
+
+                resolve();
+                return;
+            }
+
+            wordIds.push(cursor.primaryKey);
+
+            if (wordIds.length >= batchSize) {
+
+                const currentBatch = wordIds;
+
+                wordIds = [];
+
+                try {
+                    await onBatch(currentBatch);
+                } catch (error) {
+                    reject(error);
+                    return;
+                }
+            }
+
+            cursor.continue();
+        };
+
+        request.onerror = () => {
+            reject(request.error);
+        };
+    });
+}
 
 /**
  * Save review
@@ -1749,6 +1850,200 @@ export async function deleteDatabase() {
 
                 reject(
                     request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+/* ==========================================================
+   BATCHES
+========================================================== */
+
+/**
+ * Save or update one batch.
+ */
+export async function saveBatch(batch) {
+
+    const database =
+        await openDatabase();
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.BATCHES,
+                    "readwrite"
+                );
+
+            const store =
+                tx.objectStore(
+                    STORES.BATCHES
+                );
+
+            store.put(batch);
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get one batch by ID.
+ */
+export async function getBatch(
+    batchId
+) {
+
+    const database =
+        await openDatabase();
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.BATCHES,
+                    "readonly"
+                );
+
+            const store =
+                tx.objectStore(
+                    STORES.BATCHES
+                );
+
+            const request =
+                store.get(
+                    batchId
+                );
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result ??
+                    null
+                );
+
+            };
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Get all batches.
+ */
+export async function getBatches() {
+
+    const database =
+        await openDatabase();
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.BATCHES,
+                    "readonly"
+                );
+
+            const store =
+                tx.objectStore(
+                    STORES.BATCHES
+                );
+
+            const request =
+                store.getAll();
+
+            request.onsuccess = () => {
+
+                resolve(
+                    request.result
+                );
+
+            };
+
+            request.onerror = () => {
+
+                reject(
+                    request.error
+                );
+
+            };
+
+        }
+    );
+
+}
+
+
+/**
+ * Delete one batch.
+ */
+export async function deleteBatch(
+    batchId
+) {
+
+    const database =
+        await openDatabase();
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const tx =
+                database.transaction(
+                    STORES.BATCHES,
+                    "readwrite"
+                );
+
+            const store =
+                tx.objectStore(
+                    STORES.BATCHES
+                );
+
+            store.delete(
+                batchId
+            );
+
+            tx.oncomplete = () => {
+
+                resolve();
+
+            };
+
+            tx.onerror = () => {
+
+                reject(
+                    tx.error
                 );
 
             };
