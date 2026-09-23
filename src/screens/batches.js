@@ -1,6 +1,7 @@
 import {
     loadBatches,
-    generateNextBatch
+    generateNextBatch,
+    updateBatch,
 } from "../services/batchService.js";
 
 
@@ -174,14 +175,35 @@ export async function renderBatches(container) {
                             </strong>
                         </p>
 
-                        <p>
-                            المراجع:
-                            <strong>
-                                ${escapeHtml(
-                                    batch.reviewerId || "-"
-                                )}
-                            </strong>
-                        </p>
+                        <div style="margin-top: 12px;">
+
+                            <label>
+                                <strong>المراجع:</strong>
+                            </label>
+
+                            <br>
+
+                            <input
+                                type="text"
+                                class="reviewer-input"
+                                data-batch-id="${escapeHtml(batch.id)}"
+                                value="${escapeHtml(
+                                    batch.reviewerId || ""
+                                )}"
+                                placeholder="مثال: reviewer-001"
+                                autocomplete="off"
+                            >
+
+                            <button
+                                type="button"
+                                class="assign-reviewer-button"
+                                data-batch-id="${escapeHtml(batch.id)}"
+                                style="margin-top: 8px;"
+                            >
+                                حفظ المراجع
+                            </button>
+
+                        </div>                        
 
                         <p>
                             الحالة:
@@ -255,6 +277,53 @@ export async function renderBatches(container) {
                 }
 
                 await refreshBatches();
+
+                list.addEventListener(
+                    "click",
+                    async event => {
+
+                        const button =
+                            event.target.closest(
+                                ".assign-reviewer-button"
+                            );
+
+                        if (!button) {
+                            return;
+                        }
+
+                        const batchId =
+                            button.dataset.batchId;
+
+                        const input =
+                            list.querySelector(
+                                `.reviewer-input[data-batch-id="${batchId}"]`
+                            );
+
+                        if (!input) {
+                            return;
+                        }
+
+                        const batch =
+                            await loadBatch(batchId);
+
+                        if (!batch) {
+                            message.textContent =
+                                "الدفعة غير موجودة.";
+
+                            return;
+                        }
+
+                        batch.reviewerId =
+                            input.value.trim() || null;
+
+                        await updateBatch(batch);
+
+                        message.textContent =
+                            `تم حفظ المراجع للدفعة ${batchId}.`;
+
+                        await refreshBatches();
+                    }
+                );
 
             } catch (error) {
 

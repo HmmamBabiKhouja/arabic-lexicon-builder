@@ -266,3 +266,133 @@ export async function resetTestBatches() {
 
     return true;
 }
+
+/**
+ * Repair the batch allocator from the batches that
+ * actually exist in IndexedDB.
+ *
+ * Example:
+ * BATCH-0001 exists
+ * BATCH-0002 and BATCH-0003 were deleted
+ *
+ * Result:
+ * next number = 2
+ * last word ID = last ID of BATCH-0001
+ */
+export async function repairBatchAllocator() {
+
+    const batches = await loadBatches();
+
+    const realBatches =
+        batches
+            .filter(batch =>
+                /^BATCH-\d+$/.test(
+                    String(batch.id)
+                )
+            )
+            .sort((a, b) => {
+
+                const numberA =
+                    Number(
+                        String(a.id)
+                            .replace("BATCH-", "")
+                    );
+
+                const numberB =
+                    Number(
+                        String(b.id)
+                            .replace("BATCH-", "")
+                    );
+
+                return numberA - numberB;
+            });
+
+
+    /*
+     * No real batches exist.
+     */
+    if (realBatches.length === 0) {
+
+        await saveSetting(
+            "batchNextNumber",
+            1
+        );
+
+        await saveSetting(
+            "batchLastWordId",
+            null
+        );
+
+        return {
+            nextNumber: 1,
+            lastWordId: null
+        };
+    }
+
+
+    /*
+     * The highest existing batch is our
+     * current allocation point.
+     */
+    const lastBatch =
+        realBatches[
+            realBatches.length - 1
+        ];
+
+
+    const lastBatchNumber =
+        Number(
+            String(lastBatch.id)
+                .replace("BATCH-", "")
+        );
+
+
+    const wordIds =
+        Array.isArray(lastBatch.wordIds)
+            ? lastBatch.wordIds
+            : [];
+
+
+    const lastWordId =
+        wordIds.length > 0
+            ? wordIds[wordIds.length - 1]
+            : null;
+
+
+    const nextNumber =
+        lastBatchNumber + 1;
+
+
+    await saveSetting(
+        "batchNextNumber",
+        nextNumber
+    );
+
+    await saveSetting(
+        "batchLastWordId",
+        lastWordId
+    );
+
+
+    console.log(
+        "BATCH ALLOCATOR REPAIRED:",
+        {
+            lastBatch:
+                lastBatch.id,
+
+            nextNumber,
+
+            lastWordId
+        }
+    );
+
+
+    return {
+        lastBatch:
+            lastBatch.id,
+
+        nextNumber,
+
+        lastWordId
+    };
+}

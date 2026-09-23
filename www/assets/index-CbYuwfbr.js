@@ -862,7 +862,7 @@ Total Duration: ${c-l}ms`),Z.resolve({didRun:!0,sequenceNumbersCollected:r,targe
 
             </div>
 
-        `}}var lT=t((()=>{sT(),cw()})),uT,dT,fT,pT,mT=t((()=>{uT=`modulepreload`,dT=function(e,t){return new URL(e,t).href},fT={},pT=function(e,t,n){let r=Promise.resolve();if(t&&t.length>0){let e=document.getElementsByTagName(`link`),i=document.querySelector(`meta[property=csp-nonce]`),a=i?.nonce||i?.getAttribute(`nonce`);function o(e){return Promise.all(e.map(e=>Promise.resolve(e).then(e=>({status:`fulfilled`,value:e}),e=>({status:`rejected`,reason:e}))))}function s(e){return import.meta.resolve?import.meta.resolve(e):new URL(e,import.meta.url).href}r=o(t.map(t=>{if(t=dT(t,n),t=s(t),t in fT)return;fT[t]=!0;let r=t.endsWith(`.css`);for(let n=e.length-1;n>=0;n--){let i=e[n];if(i.href===t&&(!r||i.rel===`stylesheet`))return}let i=document.createElement(`link`);if(i.rel=r?`stylesheet`:uT,r||(i.as=`script`),i.crossOrigin=``,i.href=t,a&&i.setAttribute(`nonce`,a),document.head.appendChild(i),r)return new Promise((e,n)=>{i.addEventListener(`load`,e),i.addEventListener(`error`,()=>n(Error(`Unable to preload CSS for ${t}`)))})}))}function i(e){let t=new Event(`vite:preloadError`,{cancelable:!0});if(t.payload=e,window.dispatchEvent(t),!t.defaultPrevented)throw e}return r.then(t=>{for(let e of t||[])e.status===`rejected`&&i(e.reason);return e().catch(i)})}}));async function hT({id:e,stage:t=`first`,reviewerId:n=null,wordIds:r=[]}){if(!e)throw Error(`Batch ID is required.`);let i=new Date,a={id:e,stage:t,reviewerId:n,status:`pending`,wordIds:r,totalWords:r.length,reviewedWords:0,acceptedWords:0,rejectedWords:0,createdAt:i,updatedAt:i};return await ce(a),a}async function gT(){return await le()}async function _T(e=10,t=`TEST-BATCH-001`){let{getFirstWordIds:n}=await pT(async()=>{let{getFirstWordIds:e}=await Promise.resolve().then(()=>(he(),c));return{getFirstWordIds:e}},void 0,import.meta.url),r=await n(e);if(r.length===0)throw Error(`No words found.`);return await hT({id:t,stage:`first`,reviewerId:`test-reviewer`,wordIds:r})}async function vT({batchSize:e=1e3,stage:t=`first`,reviewerId:n=null}={}){return await ue({batchSize:e,stage:t,reviewerId:n})}var yT=t((()=>{he(),mT(),window.testBatch=async()=>{let e=await _T(10);console.log(`TEST BATCH CREATED:`,e),console.log(`Word count:`,e.wordIds.length)}}));function bT(e){switch(e){case`pending`:return`قيد الانتظار`;case`in_progress`:return`قيد المراجعة`;case`completed`:return`مكتمل`;default:return e||`غير معروف`}}function xT(e){return e===`first`?`المراجعة الأولى`:e===`specialist`?`المراجع المختص`:e||`-`}function ST(e){return String(e??``).replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`).replaceAll(`'`,`&#039;`)}async function CT(e){e.innerHTML=`
+        `}}var lT=t((()=>{sT(),cw()})),uT,dT,fT,pT,mT=t((()=>{uT=`modulepreload`,dT=function(e,t){return new URL(e,t).href},fT={},pT=function(e,t,n){let r=Promise.resolve();if(t&&t.length>0){let e=document.getElementsByTagName(`link`),i=document.querySelector(`meta[property=csp-nonce]`),a=i?.nonce||i?.getAttribute(`nonce`);function o(e){return Promise.all(e.map(e=>Promise.resolve(e).then(e=>({status:`fulfilled`,value:e}),e=>({status:`rejected`,reason:e}))))}function s(e){return import.meta.resolve?import.meta.resolve(e):new URL(e,import.meta.url).href}r=o(t.map(t=>{if(t=dT(t,n),t=s(t),t in fT)return;fT[t]=!0;let r=t.endsWith(`.css`);for(let n=e.length-1;n>=0;n--){let i=e[n];if(i.href===t&&(!r||i.rel===`stylesheet`))return}let i=document.createElement(`link`);if(i.rel=r?`stylesheet`:uT,r||(i.as=`script`),i.crossOrigin=``,i.href=t,a&&i.setAttribute(`nonce`,a),document.head.appendChild(i),r)return new Promise((e,n)=>{i.addEventListener(`load`,e),i.addEventListener(`error`,()=>n(Error(`Unable to preload CSS for ${t}`)))})}))}function i(e){let t=new Event(`vite:preloadError`,{cancelable:!0});if(t.payload=e,window.dispatchEvent(t),!t.defaultPrevented)throw e}return r.then(t=>{for(let e of t||[])e.status===`rejected`&&i(e.reason);return e().catch(i)})}}));async function hT({id:e,stage:t=`first`,reviewerId:n=null,wordIds:r=[]}){if(!e)throw Error(`Batch ID is required.`);let i=new Date,a={id:e,stage:t,reviewerId:n,status:`pending`,wordIds:r,totalWords:r.length,reviewedWords:0,acceptedWords:0,rejectedWords:0,createdAt:i,updatedAt:i};return await ce(a),a}async function gT(){return await le()}async function _T(e){if(!e||!e.id)throw Error(`Valid batch is required.`);return e.updatedAt=new Date,await ce(e),e}async function vT(e=10,t=`TEST-BATCH-001`){let{getFirstWordIds:n}=await pT(async()=>{let{getFirstWordIds:e}=await Promise.resolve().then(()=>(he(),c));return{getFirstWordIds:e}},void 0,import.meta.url),r=await n(e);if(r.length===0)throw Error(`No words found.`);return await hT({id:t,stage:`first`,reviewerId:`test-reviewer`,wordIds:r})}async function yT({batchSize:e=1e3,stage:t=`first`,reviewerId:n=null}={}){return await ue({batchSize:e,stage:t,reviewerId:n})}var bT=t((()=>{he(),mT(),window.testBatch=async()=>{let e=await vT(10);console.log(`TEST BATCH CREATED:`,e),console.log(`Word count:`,e.wordIds.length)}}));function xT(e){switch(e){case`pending`:return`قيد الانتظار`;case`in_progress`:return`قيد المراجعة`;case`completed`:return`مكتمل`;default:return e||`غير معروف`}}function ST(e){return e===`first`?`المراجعة الأولى`:e===`specialist`?`المراجع المختص`:e||`-`}function CT(e){return String(e??``).replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`).replaceAll(`'`,`&#039;`)}async function wT(e){e.innerHTML=`
         <section class="welcome-card">
 
             <h2>إدارة دفعات المراجعة</h2>
@@ -910,27 +910,48 @@ Total Duration: ${c-l}ms`),Z.resolve({didRun:!0,sequenceNumbersCollected:r,targe
                     >
 
                         <h4>
-                            ${ST(e.id)}
+                            ${CT(e.id)}
                         </h4>
 
                         <p>
                             المرحلة:
                             <strong>
-                                ${ST(xT(e.stage))}
+                                ${CT(ST(e.stage))}
                             </strong>
                         </p>
 
-                        <p>
-                            المراجع:
-                            <strong>
-                                ${ST(e.reviewerId||`-`)}
-                            </strong>
-                        </p>
+                        <div style="margin-top: 12px;">
+
+                            <label>
+                                <strong>المراجع:</strong>
+                            </label>
+
+                            <br>
+
+                            <input
+                                type="text"
+                                class="reviewer-input"
+                                data-batch-id="${CT(e.id)}"
+                                value="${CT(e.reviewerId||``)}"
+                                placeholder="مثال: reviewer-001"
+                                autocomplete="off"
+                            >
+
+                            <button
+                                type="button"
+                                class="assign-reviewer-button"
+                                data-batch-id="${CT(e.id)}"
+                                style="margin-top: 8px;"
+                            >
+                                حفظ المراجع
+                            </button>
+
+                        </div>                        
 
                         <p>
                             الحالة:
                             <strong>
-                                ${ST(bT(e.status))}
+                                ${CT(xT(e.status))}
                             </strong>
                         </p>
 
@@ -957,4 +978,4 @@ Total Duration: ${c-l}ms`),Z.resolve({didRun:!0,sequenceNumbersCollected:r,targe
                         </p>
 
                     </article>
-                `}).join(``)}r.addEventListener(`click`,async()=>{r.disabled=!0,t.textContent=`جارٍ إنشاء الدفعة...`;try{let e=await vT({batchSize:1e3,stage:`first`,reviewerId:null});e?t.textContent=`تم إنشاء ${e.id} بنجاح.`:t.textContent=`لا توجد كلمات أخرى لإنشاء دفعة.`,await i()}catch(e){console.error(`BATCH GENERATION FAILED:`,e),t.textContent=`حدث خطأ أثناء إنشاء الدفعة.`}finally{r.disabled=!1}}),await i()}var wT=t((()=>{yT()}));function TT(){window.addEventListener(`hashchange`,ET),ET()}async function ET(){let e=document.getElementById(`app`),t=window.location.hash||`#/`;if(console.log(`Current route:`,t),t.startsWith(`#/word/`)){let n=Number(t.split(`/`)[2]);console.log(`Rendering word editor:`,n),await iT(e,n);return}switch(t){case`#/review`:console.log(`Rendering review screen`),await Lw(e);break;case`#/import`:console.log(`Rendering import screen`),await Kw(e);break;case`#/search`:console.log(`Rendering search screen`),await nT(e);break;case`#/duplicates`:console.log(`Rendering duplicates screen`),await cT(e);break;case`#/batches`:console.log(`Rendering batches screen`),await CT(e);break;default:console.log(`Rendering home screen`),await RC(e)}}var DT=t((()=>{VC(),Vw(),Xw(),rT(),aT(),lT(),wT()}));async function OT(){console.log(`FULL SYNC: starting...`);try{tC(`syncing`),await _C(),await pC(),await gC(),await fC(),tC(`idle`),console.log(`FULL SYNC: completed successfully.`)}catch(e){console.error(`FULL SYNC: failed:`,e),tC(`error`)}}async function kT(){if(vC(),!await jw())return!1;let e=await De();return Cw(e),console.log(`Resuming from word`,e),navigator.onLine?await OT():console.log(`Device is offline. Synchronization postponed.`),window.addEventListener(`online`,async()=>{console.log(`Internet connection restored.`),await OT()}),!0}var AT=t((()=>{Mw(),ke(),SC()}));n((()=>{a(),DT(),AT();async function e(){console.log(`=================================`),console.log(`${i.name} v${i.version}`),console.log(`Initializing...`),console.log(`=================================`),t();let e=await kT();console.log(e?`Dictionary loaded.`:`No dictionary found.`),n(),TT()}function t(){let e=localStorage.getItem(`theme`)||i.defaultTheme;document.body.dataset.theme=e}function n(){let e=document.getElementById(`startButton`);e&&e.addEventListener(`click`,()=>{window.location.hash=`/review`})}document.addEventListener(`DOMContentLoaded`,e)}))();
+                `}).join(``)}r.addEventListener(`click`,async()=>{r.disabled=!0,t.textContent=`جارٍ إنشاء الدفعة...`;try{let e=await yT({batchSize:1e3,stage:`first`,reviewerId:null});e?t.textContent=`تم إنشاء ${e.id} بنجاح.`:t.textContent=`لا توجد كلمات أخرى لإنشاء دفعة.`,await i(),n.addEventListener(`click`,async e=>{let r=e.target.closest(`.assign-reviewer-button`);if(!r)return;let a=r.dataset.batchId,o=n.querySelector(`.reviewer-input[data-batch-id="${a}"]`);if(!o)return;let s=await loadBatch(a);if(!s){t.textContent=`الدفعة غير موجودة.`;return}s.reviewerId=o.value.trim()||null,await _T(s),t.textContent=`تم حفظ المراجع للدفعة ${a}.`,await i()})}catch(e){console.error(`BATCH GENERATION FAILED:`,e),t.textContent=`حدث خطأ أثناء إنشاء الدفعة.`}finally{r.disabled=!1}}),await i()}var TT=t((()=>{bT()}));function ET(){window.addEventListener(`hashchange`,DT),DT()}async function DT(){let e=document.getElementById(`app`),t=window.location.hash||`#/`;if(console.log(`Current route:`,t),t.startsWith(`#/word/`)){let n=Number(t.split(`/`)[2]);console.log(`Rendering word editor:`,n),await iT(e,n);return}switch(t){case`#/review`:console.log(`Rendering review screen`),await Lw(e);break;case`#/import`:console.log(`Rendering import screen`),await Kw(e);break;case`#/search`:console.log(`Rendering search screen`),await nT(e);break;case`#/duplicates`:console.log(`Rendering duplicates screen`),await cT(e);break;case`#/batches`:console.log(`Rendering batches screen`),await wT(e);break;default:console.log(`Rendering home screen`),await RC(e)}}var OT=t((()=>{VC(),Vw(),Xw(),rT(),aT(),lT(),TT()}));async function kT(){console.log(`FULL SYNC: starting...`);try{tC(`syncing`),await _C(),await pC(),await gC(),await fC(),tC(`idle`),console.log(`FULL SYNC: completed successfully.`)}catch(e){console.error(`FULL SYNC: failed:`,e),tC(`error`)}}async function AT(){if(vC(),!await jw())return!1;let e=await De();return Cw(e),console.log(`Resuming from word`,e),navigator.onLine?await kT():console.log(`Device is offline. Synchronization postponed.`),window.addEventListener(`online`,async()=>{console.log(`Internet connection restored.`),await kT()}),!0}var jT=t((()=>{Mw(),ke(),SC()}));n((()=>{a(),OT(),jT();async function e(){console.log(`=================================`),console.log(`${i.name} v${i.version}`),console.log(`Initializing...`),console.log(`=================================`),t();let e=await AT();console.log(e?`Dictionary loaded.`:`No dictionary found.`),n(),ET()}function t(){let e=localStorage.getItem(`theme`)||i.defaultTheme;document.body.dataset.theme=e}function n(){let e=document.getElementById(`startButton`);e&&e.addEventListener(`click`,()=>{window.location.hash=`/review`})}document.addEventListener(`DOMContentLoaded`,e)}))();
