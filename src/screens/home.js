@@ -340,6 +340,17 @@ if (googleSignInButton) {
 
                 </button>
 
+                <button id="searchButton">
+
+                    🔍 البحث في القاموس
+
+                </button>
+
+                <button id="batchesButton">
+                
+                    إدارة الدفعات
+                
+                </button>
 
                 <button id="exportButton">
 
@@ -347,12 +358,6 @@ if (googleSignInButton) {
 
                 </button>
 
-
-                <button id="searchButton">
-
-                    🔍 البحث في القاموس
-
-                </button>
 
                 <button id="duplicatesButton">
 
@@ -442,8 +447,7 @@ if (googleSignInButton) {
                 "click",
                 () => {
 
-                    window.location.hash =
-                        "#/search";
+                    window.location.hash = "#/search";
 
                 }
             );
@@ -455,8 +459,7 @@ if (googleSignInButton) {
                 "click",
                 () => {
 
-                    window.location.hash =
-                        "#/duplicates";
+                    window.location.hash = "#/duplicates";
 
                 }
             );
@@ -468,11 +471,21 @@ if (googleSignInButton) {
                 "click",
                 () => {
 
-                    window.location.hash =
-                        "#/import";
+                    window.location.hash = "#/import";
 
                 }
             );
+
+        document
+            .getElementById("batchesButton")
+            .addEventListener(
+                "click",
+                () => {
+
+                    window.location.hash = "#/batches";
+                
+                }
+            );   
 
 
     } catch (error) {

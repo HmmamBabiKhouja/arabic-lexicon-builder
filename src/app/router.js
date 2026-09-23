@@ -4,6 +4,7 @@ import { renderImportScreen } from "../screens/import.js";
 import { renderSearchScreen } from "../screens/search.js";
 import { renderWordEditor } from "../screens/wordEditor.js";
 import { renderDuplicateScreen } from "../screens/duplicates.js";
+import { renderBatches } from "../screens/batches.js";
 
 export function initRouter() {
 
@@ -66,6 +67,14 @@ async function render() {
             await renderDuplicateScreen(app);
 
             break;
+
+        case "#/batches":
+
+            console.log("Rendering batches screen");
+
+            await renderBatches(app);
+
+            break;    
 
         default:
 
