@@ -1,7 +1,3 @@
-            /*
-            give the full fill to chatgpt and ask him why there is ifs and swaitch statment 
-             */
-
 import { renderHomeScreen } from "../screens/home.js";
 import { renderReviewScreen } from "../screens/review.js";
 import { renderImportScreen } from "../screens/import.js";
@@ -38,17 +34,17 @@ async function render() {
         return;
     }
 
-    if (route.startsWith("/batch/")) {
+    if (route.startsWith("#/batch/")) {
 
         const batchId =
             decodeURIComponent(
                 route.substring(
-                    "/batch/".length
+                    "#/batch/".length
                 )
             );
 
         await renderBatchReview(
-            container,
+            app,
             batchId
         );
 

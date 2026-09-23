@@ -1,8 +1,12 @@
 import { openDatabase } from "../database/db.js";
 
 const STORE_NAME = "words";
+const INDEX_NAME = "searchKey";
 
-
+/**
+ * Prefix-search words using the IndexedDB searchKey index.
+ * Does not scan the full dictionary.
+ */
 export async function searchWordsFromDatabase(
     query,
     limit = 50
@@ -22,67 +26,62 @@ export async function searchWordsFromDatabase(
 
 
         const store =
-            tx.objectStore(STORE_NAME);
+            tx.objectStore(
+                STORE_NAME
+            );
+
+
+        if (
+            !store.indexNames.contains(
+                INDEX_NAME
+            )
+        ) {
+
+            reject(
+                new Error(
+                    "searchKey index is missing."
+                )
+            );
+
+            return;
+
+        }
+
+
+        const index =
+            store.index(
+                INDEX_NAME
+            );
+
+
+        const range =
+            IDBKeyRange.bound(
+                query,
+                query + "\uffff"
+            );
 
 
         const request =
-            store.openCursor();
+            index.getAll(
+                range,
+                limit
+            );
 
 
-        const results = [];
+        request.onsuccess = () => {
 
-
-        request.onsuccess = event => {
-
-            const cursor =
-                event.target.result;
-
-
-            if (!cursor) {
-
-                resolve(results);
-
-                return;
-
-            }
-
-
-            const word =
-                cursor.value;
-
-
-            const searchKey =
-                word.searchKey || "";
-
-
-            if (
-                searchKey.startsWith(query)
-            ) {
-
-                results.push(word);
-
-            }
-
-
-            if (
-                results.length >= limit
-            ) {
-
-                resolve(results);
-
-                return;
-
-            }
-
-
-            cursor.continue();
+            resolve(
+                request.result ?? []
+            );
 
         };
 
 
         request.onerror = () => {
 
-            reject(request.error);
+            reject(
+                request.error
+            );
 
         };
 

@@ -2,6 +2,8 @@ import {
     searchWords
 } from "../services/searchService.js";
 
+import { escapeHtml } from "../utils/escapeHtml.js";
+
 
 export async function renderSearchScreen(container) {
 
@@ -52,7 +54,15 @@ export async function renderSearchScreen(container) {
         document.getElementById("results");
 
 
+    let searchToken = 0;
+    let debounceTimer = null;
+
+
     async function performSearch() {
+
+        const token =
+            ++searchToken;
+
 
         const query =
             input.value.trim();
@@ -88,6 +98,11 @@ export async function renderSearchScreen(container) {
                 await searchWords(query);
 
 
+            if (token !== searchToken) {
+                return;
+            }
+
+
             if (!words.length) {
 
                 results.innerHTML = `
@@ -109,35 +124,35 @@ export async function renderSearchScreen(container) {
 
                         <div
                             class="result-card"
-                            data-id="${word.id}"
+                            data-id="${escapeHtml(word.id)}"
                         >
 
                             <strong>
 
-                                ${word.currentWord}
+                                ${escapeHtml(word.currentWord)}
 
                             </strong>
 
                             <br>
 
                             الكلمة الأصلية:
-                            ${word.originalWord}
+                            ${escapeHtml(word.originalWord)}
 
                             <br>
 
                             المعرّف:
-                            ${word.id}
+                            ${escapeHtml(word.id)}
 
                             <br>
 
                             التكرار:
-                            ${word.frequency}
+                            ${Number(word.frequency || 0).toLocaleString()}
 
                             <br><br>
 
                             <button
                                 class="editButton"
-                                data-id="${word.id}"
+                                data-id="${escapeHtml(word.id)}"
                             >
 
                                 ✏️ تعديل
@@ -175,6 +190,10 @@ export async function renderSearchScreen(container) {
 
         } catch (error) {
 
+            if (token !== searchToken) {
+                return;
+            }
+
             console.error(
                 "Search failed:",
                 error
@@ -196,7 +215,12 @@ export async function renderSearchScreen(container) {
 
     button.addEventListener(
         "click",
-        performSearch
+        () => {
+
+            clearTimeout(debounceTimer);
+            performSearch();
+
+        }
     );
 
 
@@ -210,6 +234,21 @@ export async function renderSearchScreen(container) {
 
 
     input.addEventListener(
+        "input",
+        () => {
+
+            clearTimeout(debounceTimer);
+
+            debounceTimer = setTimeout(
+                performSearch,
+                200
+            );
+
+        }
+    );
+
+
+    input.addEventListener(
         "keydown",
         event => {
 
@@ -217,11 +256,15 @@ export async function renderSearchScreen(container) {
                 event.key === "Enter"
             ) {
 
+                clearTimeout(debounceTimer);
                 performSearch();
 
             }
 
         }
     );
+
+
+    input.focus();
 
 }
