@@ -1,11 +1,13 @@
 import {
+    saveSetting,
     saveBatch,
     getBatch,
     getBatches,
     deleteBatch,
     getWordIdsInBatches,
     getWordIdsAfter,
-    getFirstWordIdsForGeneration
+    getFirstWordIdsForGeneration,
+    createNextBatchAtomically
 } from "../database/db.js";
 
 
@@ -217,76 +219,50 @@ export async function generateNextBatch({
     reviewerId = null
 } = {}) {
 
-    const batches = await loadBatches();
+    return await createNextBatchAtomically({
+        batchSize,
+        stage,
+        reviewerId
+    });
+}
 
-    /*
-     * Find the last generated normal batch.
-     */
-    const normalBatches =
-        batches
-            .filter(
-                batch =>
-                    batch.id.startsWith("BATCH-")
-            )
-            .sort(
-                (a, b) =>
-                    a.id.localeCompare(
-                        b.id
-                    )
-            );
+/**
+ * Reset development batch data.
+ *
+ * Removes only the batches created during testing
+ * and resets the batch allocator.
+ *
+ * DO NOT use this after real production batches exist.
+ */
+export async function resetTestBatches() {
 
-    let lastWordId = null;
+    const testBatchIds = [
+        "TEST-BATCH-001",
+        "BATCH-0001"
+    ];
 
-    if (normalBatches.length > 0) {
+    for (const batchId of testBatchIds) {
 
-        const lastBatch =
-            normalBatches[
-                normalBatches.length - 1
-            ];
+        const batch =
+            await getBatch(batchId);
 
-        const lastIds =
-            lastBatch.wordIds || [];
-
-        if (lastIds.length > 0) {
-            lastWordId =
-                lastIds[lastIds.length - 1];
+        if (batch) {
+            await deleteBatch(batchId);
         }
     }
 
     /*
-     * Read the next chunk.
+     * Reset persistent allocator.
      */
-    const wordIds =
-        lastWordId === null
-            ? await getFirstWordIdsForGeneration(
-                batchSize
-            )
-            : await getWordIdsAfter(
-                lastWordId,
-                batchSize
-            );
+    await saveSetting(
+        "batchNextNumber",
+        1
+    );
 
-    if (wordIds.length === 0) {
+    await saveSetting(
+        "batchLastWordId",
+        null
+    );
 
-        return null;
-    }
-
-    const nextNumber =
-        normalBatches.length + 1;
-
-    const id =
-        `BATCH-${String(nextNumber)
-            .padStart(4, "0")}`;
-
-    return await createBatch({
-
-        id,
-
-        stage,
-
-        reviewerId,
-
-        wordIds
-
-    });
+    return true;
 }

@@ -2084,6 +2084,251 @@ export async function deleteBatch(
 }
 
 /**
+ * Atomically allocate and save the next batch.
+ *
+ * This transaction:
+ * 1. Reads the persistent batch counter.
+ * 2. Reads the last assigned word ID.
+ * 3. Selects the next words.
+ * 4. Saves the batch.
+ * 5. Advances the allocator.
+ *
+ * Everything happens in ONE IndexedDB transaction.
+ */
+export async function createNextBatchAtomically({
+    batchSize = 1000,
+    stage = "first",
+    reviewerId = null
+} = {}) {
+
+    const database = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+
+        const tx = database.transaction(
+            [
+                STORES.WORDS,
+                STORES.BATCHES,
+                STORES.SETTINGS
+            ],
+            "readwrite"
+        );
+
+        const wordStore =
+            tx.objectStore(STORES.WORDS);
+
+        const batchStore =
+            tx.objectStore(STORES.BATCHES);
+
+        const settingsStore =
+            tx.objectStore(STORES.SETTINGS);
+
+        const nextNumberRequest =
+            settingsStore.get("batchNextNumber");
+
+        const lastWordRequest =
+            settingsStore.get("batchLastWordId");
+
+        let nextNumber = 1;
+        let lastWordId = null;
+
+        let nextNumberLoaded = false;
+        let lastWordLoaded = false;
+
+        let cursorStarted = false;
+        let wordIds = [];
+
+        function startCursor() {
+
+            if (
+                !nextNumberLoaded ||
+                !lastWordLoaded ||
+                cursorStarted
+            ) {
+                return;
+            }
+
+            cursorStarted = true;
+
+            const range =
+                lastWordId === null
+                    ? null
+                    : IDBKeyRange.lowerBound(
+                        lastWordId,
+                        true
+                    );
+
+            const cursorRequest =
+                range === null
+                    ? wordStore.openCursor()
+                    : wordStore.openCursor(range);
+
+            cursorRequest.onsuccess = event => {
+
+                const cursor =
+                    event.target.result;
+
+                /*
+                 * No more words.
+                 */
+                if (!cursor) {
+
+                    finish();
+
+                    return;
+                }
+
+                wordIds.push(
+                    cursor.primaryKey
+                );
+
+                /*
+                 * We have enough words.
+                 */
+                if (
+                    wordIds.length >= batchSize
+                ) {
+
+                    finish();
+
+                    return;
+                }
+
+                cursor.continue();
+            };
+
+            cursorRequest.onerror = () => {
+                reject(cursorRequest.error);
+            };
+        }
+
+        function finish() {
+
+            /*
+             * No words available.
+             */
+            if (wordIds.length === 0) {
+
+                resolve(null);
+
+                return;
+            }
+
+            const batchId =
+                `BATCH-${String(nextNumber)
+                    .padStart(4, "0")}`;
+
+            const now = new Date();
+
+            const batch = {
+
+                id: batchId,
+
+                stage,
+
+                reviewerId,
+
+                status: "pending",
+
+                wordIds,
+
+                totalWords:
+                    wordIds.length,
+
+                reviewedWords: 0,
+
+                acceptedWords: 0,
+
+                rejectedWords: 0,
+
+                createdAt: now,
+
+                updatedAt: now
+            };
+
+            /*
+             * Save batch.
+             */
+            batchStore.put(batch);
+
+            /*
+             * Advance allocator.
+             */
+            settingsStore.put({
+                key: "batchNextNumber",
+                value: nextNumber + 1
+            });
+
+            settingsStore.put({
+                key: "batchLastWordId",
+                value:
+                    wordIds[
+                        wordIds.length - 1
+                    ]
+            });
+
+            /*
+             * Return result only after
+             * the transaction completes.
+             */
+            tx.oncomplete = () => {
+
+                resolve(batch);
+            };
+        }
+
+        nextNumberRequest.onsuccess = () => {
+
+            const value =
+                nextNumberRequest.result?.value;
+
+            if (
+                Number.isInteger(value) &&
+                value > 0
+            ) {
+                nextNumber = value;
+            }
+
+            nextNumberLoaded = true;
+
+            startCursor();
+        };
+
+        nextNumberRequest.onerror = () => {
+            reject(nextNumberRequest.error);
+        };
+
+        lastWordRequest.onsuccess = () => {
+
+            lastWordId =
+                lastWordRequest.result?.value
+                ?? null;
+
+            lastWordLoaded = true;
+
+            startCursor();
+        };
+
+        lastWordRequest.onerror = () => {
+            reject(lastWordRequest.error);
+        };
+
+        tx.onerror = () => {
+            reject(tx.error);
+        };
+
+        tx.onabort = () => {
+            reject(
+                tx.error ||
+                new Error(
+                    "Batch allocation transaction aborted."
+                )
+            );
+        };
+    });
+}
+
+/**
  * Get the first N word IDs only.
  *
  * Used for testing batch generation.
@@ -2137,10 +2382,7 @@ export async function getFirstWordIds(limit = 10) {
  * The cursor starts after lastWordId, so previously
  * assigned words are not returned again.
  */
-export async function getWordIdsAfter(
-    lastWordId,
-    limit = 1000
-) {
+export async function getWordIdsAfter(lastWordId,limit = 1000) {
 
     const database = await openDatabase();
 
@@ -2199,9 +2441,7 @@ export async function getWordIdsAfter(
 /**
  * Get the first N word IDs for real batch generation.
  */
-export async function getFirstWordIdsForGeneration(
-    limit = 1000
-) {
+export async function getFirstWordIdsForGeneration(limit = 1000) {
 
     const database = await openDatabase();
 
